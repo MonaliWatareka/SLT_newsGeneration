@@ -26,7 +26,7 @@ public class OllamaService {
         this.webClient = builder.build();
     }
 
-    // Called for PDFs (text model)
+    // ── Called for PDFs (text model) ──
     public String summarizeText(String text) {
         String prompt = """
             Summarize the following document in 3-5 concise paragraphs.
@@ -40,7 +40,7 @@ public class OllamaService {
         return callOllama(prompt, model);
     }
 
-    // Called for images (vision model - llava)
+    // ── Called for images (vision model - llava) ──
     public String describeImage(String base64Image) {
         try {
             Map<String, Object> requestBody = Map.of(
@@ -63,7 +63,7 @@ public class OllamaService {
         }
     }
 
-    // Newsletter generation (text model)
+    // ── Newsletter body generation (text model) ──
     public String generateNewsletter(String summary, String title) {
         String prompt = """
             You are a professional newsletter writer.
@@ -81,6 +81,40 @@ public class OllamaService {
             ---
             Newsletter:
             """.formatted(title, summary);
+        return callOllama(prompt, model);
+    }
+
+    // ── Extract structured stories from combined document summaries ──
+    // Returns JSON: { mainStory: {title, description}, subStories: [{title, description}] }
+    public String extractStories(String summary) {
+        String prompt = """
+            You are an editorial AI assistant for a corporate newsletter.
+            Given the content below extracted from uploaded PDF slides, identify the most important story
+            as the main topic, and the remaining topics as sub-stories.
+
+            Return ONLY valid JSON in this exact format with no extra text, no markdown, no code fences:
+            {
+              "mainStory": {
+                "title": "A concise, engaging headline for the main topic",
+                "description": "2-3 sentence summary of the main topic suitable for a newsletter"
+              },
+              "subStories": [
+                {
+                  "title": "Headline for sub-story 1",
+                  "description": "1-2 sentence summary of sub-story 1"
+                },
+                {
+                  "title": "Headline for sub-story 2",
+                  "description": "1-2 sentence summary of sub-story 2"
+                }
+              ]
+            }
+
+            Content:
+            ---
+            %s
+            ---
+            """.formatted(truncate(summary, 3500));
         return callOllama(prompt, model);
     }
 

@@ -2,25 +2,257 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Newsletter</title>
     <style>
-        body { font-family: Georgia, serif; max-width: 700px; margin: auto; padding: 20px; background: #f9f9f9; }
-        .header { background: #1a1a2e; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .header h1 { margin: 0; font-size: 28px; letter-spacing: 1px; }
-        .header .date { font-size: 13px; color: #aaa; margin-top: 8px; }
-        .content { background: white; padding: 35px; border-radius: 0 0 8px 8px; border: 1px solid #ddd; line-height: 1.8; color: #333; }
-        .footer { text-align: center; font-size: 12px; color: #888; margin-top: 20px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        .wrapper {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: #0a1628;
+            padding: 28px 32px;
+            text-align: center;
+            border-bottom: 3px solid #1a56a0;
+        }
+        .header-brand {
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #5a9fd4;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .header h1 {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+        }
+        .header .meta {
+            font-size: 12px;
+            color: #7a9bbf;
+            margin-top: 10px;
+        }
+
+        /* ── FULL-WIDTH STACKED IMAGES ── */
+        .image-block {
+            width: 100%;
+            border-bottom: 3px solid #1a56a0;
+        }
+        .image-block img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .image-caption {
+            background: #0a1628;
+            padding: 6px 16px;
+            font-size: 11px;
+            color: #5a9fd4;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ── SECTION ── */
+        .section {
+            padding: 28px 32px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .section-label {
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #1a56a0;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8edf5;
+        }
+
+        /* ── MAIN TOPIC ── */
+        .main-topic-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .main-topic-content {
+            font-size: 14px;
+            color: #374151;
+            line-height: 1.85;
+            margin-bottom: 16px;
+        }
+        .read-more {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #1a56a0;
+            text-decoration: none;
+            border-bottom: 1px solid #1a56a0;
+            padding-bottom: 1px;
+        }
+        .read-more:hover { color: #0d3d80; }
+
+        /* ── SUB TOPICS ── */
+        .sub-topics-section {
+            padding: 28px 32px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .sub-topic {
+            margin-bottom: 22px;
+            padding-bottom: 22px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .sub-topic:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .sub-topic-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 7px;
+        }
+        .sub-topic-content {
+            font-size: 13px;
+            color: #4b5563;
+            line-height: 1.75;
+            margin-bottom: 9px;
+        }
+        .learn-more {
+            font-size: 13px;
+            font-weight: bold;
+            color: #1a56a0;
+            text-decoration: none;
+        }
+        .learn-more:hover { text-decoration: underline; }
+
+        /* ── WHATSAPP SECTION ── */
+        .wa-section {
+            padding: 24px 32px;
+            background: #f8f9fc;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .wa-section-label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+        .wa-line {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.7;
+        }
+        .wa-link {
+            color: #25d366;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .wa-link:hover { text-decoration: underline; }
+        .wa-emoji { font-size: 15px; margin-right: 5px; }
+
+        /* ── BOTTOM FOOTER ── */
+        .footer {
+            background: #0a1628;
+            padding: 18px 32px;
+            text-align: center;
+        }
+        .footer p {
+            font-size: 12px;
+            color: #7a9bbf;
+            line-height: 1.6;
+        }
+        .footer strong { color: #a8c4e0; }
+        .footer .copy {
+            font-size: 11px;
+            color: #4a6a8a;
+            margin-top: 6px;
+        }
     </style>
 </head>
 <body>
+<div class="wrapper">
+
+    <!-- HEADER -->
     <div class="header">
+        <div class="header-brand">SLTMobitel | InfiniAI</div>
         <h1 th:text="${title}">Newsletter Title</h1>
-        <div class="date" th:text="'Generated: ' + ${generatedDate}"></div>
+        <div class="meta" th:text="'Generated: ' + ${generatedDate}"></div>
     </div>
-    <div class="content">
-        <p th:utext="${content}"></p>
+
+    <!-- FULL-WIDTH STACKED IMAGES — each image is its own full-width block, no crop -->
+    <th:block th:if="${imageBase64List != null and !imageBase64List.isEmpty()}">
+        <div class="image-block" th:each="img, iterStat : ${imageBase64List}">
+            <div class="image-caption" th:text="'Page ' + ${iterStat.index + 1}"></div>
+            <img th:src="'data:image/jpeg;base64,' + ${img}" alt="Newsletter page" />
+        </div>
+    </th:block>
+
+    <!-- TODAY'S TOP STORY -->
+    <div class="section" th:if="${mainTopicTitle != null and mainTopicTitle != ''}">
+        <div class="section-label">Today's Top Story</div>
+        <div class="main-topic-title" th:text="${mainTopicTitle}"></div>
+        <div class="main-topic-content" th:utext="${mainTopicContent}"></div>
+        <a th:if="${mainTopicLink != null and mainTopicLink != ''}"
+           th:href="${mainTopicLink}"
+           class="read-more">Read the full article</a>
     </div>
+
+    <!-- MORE STORIES THIS WEEK -->
+    <div class="sub-topics-section" th:if="${subTopics != null and !subTopics.isEmpty()}">
+        <div class="section-label">More Stories This Week</div>
+        <div th:each="sub : ${subTopics}" class="sub-topic">
+            <div class="sub-topic-title" th:text="${sub.title}"></div>
+            <div class="sub-topic-content" th:utext="${sub.content}"></div>
+            <a th:if="${sub.link != null and sub.link != ''}"
+               th:href="${sub.link}"
+               class="learn-more">Learn more</a>
+        </div>
+    </div>
+
+    <!-- FALLBACK: generated content only if no structured topics -->
+    <div class="section"
+         th:if="${(mainTopicTitle == null or mainTopicTitle == '') and content != null and content != ''}">
+        <div th:utext="${content}"></div>
+    </div>
+
+    <!-- WHATSAPP SECTION -->
+    <div class="wa-section">
+        <div class="wa-section-label">More AI insights from InfiniAI WhatsApp Channel</div>
+        <p class="wa-line">
+            <span class="wa-emoji">👉</span>
+            Stay ahead - Join the
+            <a href="https://whatsapp.com/channel/0029Vb5sSYT2Jl8HfPhnAE1D"
+               class="wa-link">InfiniAI WhatsApp Channel</a>
+            for daily updates.
+        </p>
+    </div>
+
+    <!-- FOOTER -->
     <div class="footer">
-        <p>Auto-generated by SLT News Generator using Ollama AI</p>
+        <p><strong>© 2026 SLTMobitel | InfiniAI — AI &amp; Data Office</strong></p>
+        <p class="copy">Auto-generated by SLT News Generator using Ollama AI</p>
     </div>
+
+</div>
 </body>
 </html>
