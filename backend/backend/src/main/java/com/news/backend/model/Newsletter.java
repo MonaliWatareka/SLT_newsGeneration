@@ -14,9 +14,17 @@ public class Newsletter {
     private String title;
     private String summary;
     private String newsletterContent;
-    private String templateHtml;        // final rendered HTML
-    private List<String> documentIds;   // source document IDs
+    private String templateHtml;
+    private List<String> documentIds;
     private LocalDateTime createdAt;
     private String recipientEmail;
     private boolean emailSent;
+
+    // NEW FIELDS
+    private String mainTopicTitle;
+    private String mainTopicContent;
+    private String mainTopicLink;       // "Read the full article" link
+
+    private List<SubTopic> subTopics;   // "More Stories This Week"
+    private List<String> imageBase64List; // up to 3 images from uploaded PDF
 }
