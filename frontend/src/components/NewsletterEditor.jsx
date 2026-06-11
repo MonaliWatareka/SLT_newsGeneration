@@ -4,8 +4,9 @@ import toast from 'react-hot-toast';
 
 const emptySub = () => ({ title: '', content: '', link: '' });
 
+const NEWSLETTER_TITLE = 'InfiniAI Pulse - Top Stories in AI & Telecom';
+
 export default function NewsletterEditor({ selectedDocIds, selectedDocuments, newsletter, onNewsletterGenerated }) {
-  const [title,      setTitle]      = useState(newsletter?.title || '');
   const [mainTitle,  setMainTitle]  = useState(newsletter?.mainTopicTitle || '');
   const [mainDesc,   setMainDesc]   = useState(newsletter?.mainTopicContent || '');
   const [mainLink,   setMainLink]   = useState(newsletter?.mainTopicLink || '');
@@ -13,7 +14,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
   const [images,     setImages]     = useState([]);
   const [content,    setContent]    = useState(newsletter?.newsletterContent || '');
   const [loading,    setLoading]    = useState(false);
-  const [extracting, setExtracting] = useState(false);  // ← NEW: story extraction state
+  const [extracting, setExtracting] = useState(false);
 
   // ── AUTO-EXTRACT stories from selected documents via Ollama ──
   useEffect(() => {
@@ -69,7 +70,6 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
 
   const handleGenerate = async () => {
     if (!selectedDocIds.length) { toast.error('Select at least one document'); return; }
-    if (!title.trim())          { toast.error('Enter a newsletter title'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/newsletters/generate', {
@@ -77,7 +77,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           documentIds:     selectedDocIds,
-          title,
+          title:           NEWSLETTER_TITLE,
           mainTopicTitle:  mainTitle,
           mainTopicLink:   mainLink,
           subTopics:       subs.filter(s => s.title.trim()),
@@ -96,7 +96,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
   const handleSave = async () => {
     if (!newsletter?.id) return;
     try {
-      const { data } = await updateNewsletter(newsletter.id, title, content);
+      const { data } = await updateNewsletter(newsletter.id, NEWSLETTER_TITLE, content);
       onNewsletterGenerated(data);
       toast.success('Saved!');
     } catch { toast.error('Save failed'); }
@@ -114,19 +114,6 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
           Analysing PDF with Ollama — extracting stories…
         </div>
       )}
-
-      {/* ── Newsletter Title ── */}
-      <div>
-        <label className="flbl">Newsletter Title</label>
-        <input
-          className="finp"
-          type="text"
-          placeholder="e.g. InfiniAI Pulse — Week 35"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          disabled={isDisabled}
-        />
-      </div>
 
       {/* ── Header Images (up to 3) ── */}
       <div>

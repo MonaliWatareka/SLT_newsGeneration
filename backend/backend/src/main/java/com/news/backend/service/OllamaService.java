@@ -67,19 +67,21 @@ public class OllamaService {
     public String generateNewsletter(String summary, String title) {
         String prompt = """
             You are a professional newsletter writer.
-            Based on the summary below, write a polished newsletter article.
-            Include:
-            - An engaging headline
-            - An introduction paragraph
-            - 2-3 body sections with subheadings
-            - A closing paragraph with key takeaways
+            Based on the summary below, write a SHORT and concise main story summary.
+
+            Rules:
+            - Maximum 3-4 sentences total
+            - No headings, no subheadings, no bullet points
+            - No introduction phrases like "In this edition..." or "Welcome to..."
+            - Just a clean, direct paragraph summarising the key insight
+            - Plain text only, no markdown, no asterisks
 
             Title: %s
             Summary:
             ---
             %s
             ---
-            Newsletter:
+            Short summary:
             """.formatted(title, summary);
         return callOllama(prompt, model);
     }

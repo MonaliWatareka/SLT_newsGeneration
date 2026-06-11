@@ -17,6 +17,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NewsletterService {
 
+    private static final String NEWSLETTER_TITLE = "InfiniAI Pulse - Top Stories in AI & Telecom";
+
     private final NewsletterRepository newsletterRepository;
     private final DocumentRepository documentRepository;
     private final OllamaService ollamaService;
@@ -38,20 +40,20 @@ public class NewsletterService {
             combinedSummary.append(doc.getSummary()).append("\n\n");
         }
 
-        // Let Ollama generate the main body content
+        // Always use the permanent title — ignore whatever user typed
         String newsletterContent = ollamaService.generateNewsletter(
-            combinedSummary.toString(), title
+            combinedSummary.toString(), NEWSLETTER_TITLE
         );
 
         // Render HTML template with all fields
         String templateHtml = renderTemplate(
-            title, newsletterContent,
+            NEWSLETTER_TITLE, newsletterContent,
             mainTopicTitle, mainTopicLink,
             subTopics, imageBase64List
         );
 
         Newsletter newsletter = new Newsletter();
-        newsletter.setTitle(title);
+        newsletter.setTitle(NEWSLETTER_TITLE);
         newsletter.setSummary(combinedSummary.toString());
         newsletter.setNewsletterContent(newsletterContent);
         newsletter.setTemplateHtml(templateHtml);
@@ -59,9 +61,8 @@ public class NewsletterService {
         newsletter.setCreatedAt(LocalDateTime.now());
         newsletter.setEmailSent(false);
 
-        // Save structured fields
         newsletter.setMainTopicTitle(mainTopicTitle);
-        newsletter.setMainTopicContent(formatHtml(newsletterContent)); // Ollama output is main content
+        newsletter.setMainTopicContent(formatHtml(newsletterContent));
         newsletter.setMainTopicLink(mainTopicLink);
         newsletter.setSubTopics(subTopics);
         newsletter.setImageBase64List(imageBase64List);
@@ -73,11 +74,11 @@ public class NewsletterService {
     public Newsletter updateContent(String id, String newContent, String title) {
         Newsletter nl = getById(id);
         nl.setNewsletterContent(newContent);
-        nl.setTitle(title);
+        nl.setTitle(NEWSLETTER_TITLE);   // always keep permanent title
         nl.setMainTopicContent(formatHtml(newContent));
 
         nl.setTemplateHtml(renderTemplate(
-            title, newContent,
+            NEWSLETTER_TITLE, newContent,
             nl.getMainTopicTitle(), nl.getMainTopicLink(),
             nl.getSubTopics(), nl.getImageBase64List()
         ));
@@ -98,7 +99,7 @@ public class NewsletterService {
         ctx.setVariable("content", formatHtml(content));
         ctx.setVariable("generatedDate", LocalDateTime.now().toString());
         ctx.setVariable("mainTopicTitle", mainTopicTitle != null ? mainTopicTitle : "");
-        ctx.setVariable("mainTopicContent", formatHtml(content));  // Ollama content = main body
+        ctx.setVariable("mainTopicContent", formatHtml(content));
         ctx.setVariable("mainTopicLink", mainTopicLink != null ? mainTopicLink : "");
         ctx.setVariable("subTopics", subTopics != null ? subTopics : List.of());
         ctx.setVariable("imageBase64List", imageBase64List != null ? imageBase64List : List.of());

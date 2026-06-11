@@ -26,7 +26,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_RELATED, "UTF-8");
 
             helper.setTo(recipientEmail);
-            helper.setSubject("Newsletter: " + newsletter.getTitle());
+            helper.setSubject("InfiniAI Pulse - Top Stories in AI & Telecom");
 
             List<String> images = newsletter.getImageBase64List();
             int imageCount = (images != null) ? images.size() : 0;
@@ -63,9 +63,8 @@ public class EmailService {
 
         // ── HEADER ──
         sb.append("<div style=\"background:#0a1628;padding:28px 32px;text-align:center;border-bottom:3px solid #1a56a0;\">")
-          .append("<div style=\"font-size:11px;font-weight:bold;letter-spacing:3px;color:#5a9fd4;text-transform:uppercase;margin-bottom:8px;\">SLTMobitel | InfiniAI</div>")
           .append("<h1 style=\"font-size:26px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;line-height:1.3;margin:0;\">")
-          .append(safe(nl.getTitle())).append("</h1>")
+          .append("InfiniAI Pulse - Top Stories in AI &amp; Telecom").append("</h1>")
           .append("</div>");
 
         // ── IMAGES via CID (Gmail-safe, no base64 data: URIs) ──
