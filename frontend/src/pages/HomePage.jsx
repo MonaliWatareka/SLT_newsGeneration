@@ -6,6 +6,7 @@ import NewsletterEditor from '../components/NewsletterEditor';
 import EmailSender from '../components/EmailSender';
 import { getDocuments, deleteDocument } from '../api/api';
 import toast from 'react-hot-toast';
+import sltLogo from '../assets/slt_logo_new.be681e06.png';
 
 export default function HomePage() {
   const [documents,   setDocuments]   = useState([]);
@@ -53,19 +54,14 @@ export default function HomePage() {
       <header className="hdr">
         <div className="hdr-top">
           <div className="brand">
-            <div className="brand-icon">
-              <div className="brand-icon-bg">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#4f9eff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="14 2 14 8 20 8" stroke="#4f9eff" strokeWidth="1.7" strokeLinecap="round"/>
-                  <line x1="16" y1="13" x2="8" y2="13" stroke="#4f9eff" strokeWidth="1.5" strokeLinecap="round"/>
-                  <line x1="16" y1="17" x2="8" y2="17" stroke="#4f9eff" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div className="brand-glow" />
-            </div>
+            {/* SLT Logo */}
+            <img
+              src={sltLogo}
+              alt="SLTMobitel"
+              style={{ height: 38, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+            />
             <div>
-              <div className="brand-name">SLT News Generator</div>
+              <div className="brand-name">SLT-Mobitel News Generator</div>
               <div className="brand-sub">AI-powered document summarization & newsletter creation</div>
             </div>
           </div>
@@ -99,7 +95,7 @@ export default function HomePage() {
       {/* Main two-column grid */}
       <div className="main" style={{ flex: 1 }}>
 
-        {/* LEFT column — minWidth:0 prevents grid blowout */}
+        {/* LEFT column */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
           {/* Upload */}
@@ -141,7 +137,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* RIGHT column — minWidth:0 prevents grid blowout */}
+        {/* RIGHT column */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
           {/* Generate */}
@@ -163,7 +159,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Send — only after generation */}
+          {/* Send */}
           {newsletter && (
             <div className="card card-green">
               <div className="card-head">
