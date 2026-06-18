@@ -3,7 +3,6 @@ import { updateNewsletter } from '../api/api';
 import toast from 'react-hot-toast';
 
 const emptySub = () => ({ title: '', content: '', link: '' });
-
 const NEWSLETTER_TITLE = 'InfiniAI Pulse - Top Stories in AI & Telecom';
 
 export default function NewsletterEditor({ selectedDocIds, selectedDocuments, newsletter, onNewsletterGenerated }) {
@@ -11,12 +10,12 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
   const [mainDesc,   setMainDesc]   = useState(newsletter?.mainTopicContent || '');
   const [mainLink,   setMainLink]   = useState(newsletter?.mainTopicLink || '');
   const [subs,       setSubs]       = useState([emptySub(), emptySub()]);
-  const [images,     setImages]     = useState([]);
+  const [images,     setImages]     = useState([]);   // auto-filled from PDF pages
   const [content,    setContent]    = useState(newsletter?.newsletterContent || '');
   const [loading,    setLoading]    = useState(false);
   const [extracting, setExtracting] = useState(false);
 
-  // ── AUTO-EXTRACT stories from selected documents via Ollama ──
+  // ── AUTO-EXTRACT stories + page images from selected documents via Ollama ──
   useEffect(() => {
     if (!selectedDocIds?.length) return;
 
@@ -33,13 +32,13 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
           return;
         }
 
-        // Populate main story
+        // Auto-fill main story
         if (data.mainStory) {
-          setMainTitle(data.mainStory.title   || '');
+          setMainTitle(data.mainStory.title       || '');
           setMainDesc (data.mainStory.description || '');
         }
 
-        // Populate sub-stories (keep links blank — user fills manually)
+        // Auto-fill sub-stories
         if (data.subStories?.length) {
           const autoSubs = data.subStories.map(s => ({
             title:   s.title       || '',
@@ -49,24 +48,20 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
           while (autoSubs.length < 2) autoSubs.push(emptySub());
           setSubs(autoSubs);
         }
+
+        // Auto-fill page images from PDF rendering (max 3)
+        if (data.pageImages?.length) {
+          setImages(data.pageImages.slice(0, 3));
+        }
       })
       .catch(() => toast.error('Could not reach /extract-stories endpoint'))
       .finally(() => setExtracting(false));
 
-  }, [selectedDocIds?.join(',')]);  // re-runs whenever the doc selection changes
+  }, [selectedDocIds?.join(',')]);
 
   const updateSub = (i, f, v) => setSubs(p => p.map((s, idx) => idx === i ? { ...s, [f]: v } : s));
   const addSub    = ()         => setSubs(p => [...p, emptySub()]);
   const removeSub = i          => setSubs(p => p.filter((_, idx) => idx !== i));
-
-  const handleImagePick = e => {
-    const files = Array.from(e.target.files).slice(0, 3);
-    Promise.all(files.map(f => new Promise(res => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.readAsDataURL(f);
-    }))).then(setImages);
-  };
 
   const handleGenerate = async () => {
     if (!selectedDocIds.length) { toast.error('Select at least one document'); return; }
@@ -107,38 +102,29 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
   return (
     <div className="editor">
 
-      {/* ── Extraction in-progress notice ── */}
+      {/* ── Extraction notice ── */}
       {extracting && (
         <div className="gen-notice">
           <div className="ndot" />
-          Analysing PDF with Ollama — extracting stories…
+          Analysing PDF with Ollama — extracting stories & rendering pages…
         </div>
       )}
 
-      {/* ── Header Images (up to 3) ── */}
-      <div>
-        <label className="flbl">Header Images (up to 3)</label>
-        <label style={{ cursor: 'pointer' }}>
-          <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleImagePick} />
-          <div className="img-pick">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
-              <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-              <polyline points="21 15 16 10 5 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            {images.length > 0 ? `${images.length} image(s) selected` : 'Click to choose images'}
-          </div>
-        </label>
-        {images.length > 0 && (
+      {/* ── Auto-filled page image previews (read-only) ── */}
+      {images.length > 0 && (
+        <div>
+          <label className="flbl">
+            PDF Pages ({images.length} page{images.length > 1 ? 's' : ''} — auto-extracted)
+          </label>
           <div className="img-previews">
             {images.map((b, i) => (
-              <img key={i} src={`data:image/jpeg;base64,${b}`} className="img-prev" alt="" />
+              <img key={i} src={`data:image/jpeg;base64,${b}`} className="img-prev" alt={`Page ${i + 1}`} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* ── Main Topic — auto-filled from PDF, fully editable ── */}
+      {/* ── Main Topic ── */}
       <div className="sect-block">
         <div className="sect-head">
           <span className="sect-badge sb-main">Main Topic</span>
@@ -181,12 +167,12 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
             placeholder="https://…"
             value={mainLink}
             onChange={e => setMainLink(e.target.value)}
-            disabled={isDisabled}
+            disabled={loading}
           />
         </div>
       </div>
 
-      {/* ── Sub Topics — auto-filled from PDF, links manual ── */}
+      {/* ── Sub Topics ── */}
       <div className="sect-block">
         <div className="sect-head">
           <span className="sect-badge sb-sub">Sub Topics</span>
@@ -243,7 +229,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
                 placeholder="https://…"
                 value={s.link}
                 onChange={e => updateSub(i, 'link', e.target.value)}
-                disabled={isDisabled}   // links stay editable even while extracting — intentional
+                disabled={loading}
               />
             </div>
           </div>
@@ -267,7 +253,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
         {loading ? (
           <><div className="b-spin" /> Generating with llama3.2…</>
         ) : extracting ? (
-          <><div className="b-spin" /> Extracting stories…</>
+          <><div className="b-spin" /> Extracting from PDF…</>
         ) : (
           <>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">

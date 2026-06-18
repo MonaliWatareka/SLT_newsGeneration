@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,8 +24,8 @@ public class NewsletterController {
 
     private final NewsletterService newsletterService;
     private final EmailService emailService;
-    private final DocumentRepository documentRepository;   // ← NEW: needed for extract-stories
-    private final OllamaService ollamaService;             // ← NEW: needed for extract-stories
+    private final DocumentRepository documentRepository;
+    private final OllamaService ollamaService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ── Generate full newsletter ──
@@ -35,7 +36,6 @@ public class NewsletterController {
         String mainTopicTitle = (String)       body.get("mainTopicTitle");
         String mainTopicLink  = (String)       body.get("mainTopicLink");
 
-        // Sub topics — list of {title, content, link}
         List<Map<String, String>> rawSubs = (List<Map<String, String>>) body.get("subTopics");
         List<SubTopic> subTopics = List.of();
         if (rawSubs != null) {
@@ -48,7 +48,6 @@ public class NewsletterController {
             }).toList();
         }
 
-        // Images as base64 strings (up to 3)
         List<String> images = (List<String>) body.getOrDefault("imageBase64List", List.of());
 
         return ResponseEntity.ok(
@@ -58,18 +57,28 @@ public class NewsletterController {
         );
     }
 
-    // ── NEW: Auto-extract main story + sub-stories from document summaries via Ollama ──
+    // ── Auto-extract stories + page images from document summaries ──
     @PostMapping("/extract-stories")
     public ResponseEntity<Map<String, Object>> extractStories(@RequestBody Map<String, Object> body) {
         List<String> docIds = (List<String>) body.get("documentIds");
 
-        // Combine all document summaries
         StringBuilder combined = new StringBuilder();
+        List<String> allPageImages = new ArrayList<>();
+
         for (String docId : docIds) {
             NewsDocument doc = documentRepository.findById(docId)
                 .orElseThrow(() -> new RuntimeException("Document not found: " + docId));
+
             if (doc.getSummary() != null) {
                 combined.append(doc.getSummary()).append("\n\n");
+            }
+
+            // Collect page images from this document (up to 3 total across all docs)
+            if (doc.getPageImagesBase64() != null && allPageImages.size() < 3) {
+                for (String img : doc.getPageImagesBase64()) {
+                    if (allPageImages.size() >= 3) break;
+                    allPageImages.add(img);
+                }
             }
         }
 
@@ -77,7 +86,6 @@ public class NewsletterController {
         String rawJson = ollamaService.extractStories(combined.toString());
 
         try {
-            // Strip markdown code fences if Ollama wraps response in ```json ... ```
             String clean = rawJson
                 .replaceAll("(?s)```json\\s*", "")
                 .replaceAll("```", "")
@@ -86,13 +94,17 @@ public class NewsletterController {
             Map<String, Object> parsed = objectMapper.readValue(
                 clean, new TypeReference<Map<String, Object>>() {}
             );
+
+            // Inject page images into the response
+            parsed.put("pageImages", allPageImages);
+
             return ResponseEntity.ok(parsed);
 
         } catch (Exception e) {
-            // If JSON parsing fails, return raw so frontend can show graceful fallback
             return ResponseEntity.ok(Map.of(
                 "error", "Could not parse Ollama response",
-                "raw", rawJson
+                "raw", rawJson,
+                "pageImages", allPageImages
             ));
         }
     }
