@@ -87,7 +87,6 @@ public class OllamaService {
     }
 
     // ── Extract structured stories from combined document summaries ──
-    // Returns JSON: { mainStory: {title, description}, subStories: [{title, description}] }
     public String extractStories(String summary) {
         String prompt = """
             You are an editorial AI assistant for a corporate newsletter.
@@ -98,16 +97,16 @@ public class OllamaService {
             {
               "mainStory": {
                 "title": "A concise, engaging headline for the main topic",
-                "description": "2-3 sentence summary of the main topic suitable for a newsletter"
+                "content": "2-3 sentence summary of the main topic suitable for a newsletter"
               },
               "subStories": [
                 {
                   "title": "Headline for sub-story 1",
-                  "description": "1-2 sentence summary of sub-story 1"
+                  "content": "1-2 sentence summary of sub-story 1"
                 },
                 {
                   "title": "Headline for sub-story 2",
-                  "description": "1-2 sentence summary of sub-story 2"
+                  "content": "1-2 sentence summary of sub-story 2"
                 }
               ]
             }
@@ -117,6 +116,34 @@ public class OllamaService {
             %s
             ---
             """.formatted(truncate(summary, 3500));
+        return callOllama(prompt, model);
+    }
+
+    // ── Suggest 3 relevant LinkedIn search URLs for a given topic title ──
+    // Returns JSON: { links: [ {label, url}, ... ] }
+    public String suggestLinks(String topicTitle) {
+        String prompt = """
+            You are a research assistant. Given the topic title below, generate 3 relevant
+            LinkedIn search URLs that a reader could visit to find related articles and posts.
+
+            Use this LinkedIn search URL format:
+            https://www.linkedin.com/search/results/content/?keywords=SEARCH+TERMS&origin=GLOBAL_SEARCH_HEADER
+
+            Rules:
+            - Replace SEARCH+TERMS with relevant keywords from the topic (URL-encoded, spaces as +)
+            - Make each search query different — vary the angle (e.g. one broad, one technical, one trend-focused)
+            - Return ONLY valid JSON, no markdown, no code fences, no explanation
+            - Use this exact format:
+            {
+              "links": [
+                { "label": "Short descriptive label", "url": "https://www.linkedin.com/search/results/content/?keywords=..." },
+                { "label": "Short descriptive label", "url": "https://www.linkedin.com/search/results/content/?keywords=..." },
+                { "label": "Short descriptive label", "url": "https://www.linkedin.com/search/results/content/?keywords=..." }
+              ]
+            }
+
+            Topic: %s
+            """.formatted(topicTitle);
         return callOllama(prompt, model);
     }
 
