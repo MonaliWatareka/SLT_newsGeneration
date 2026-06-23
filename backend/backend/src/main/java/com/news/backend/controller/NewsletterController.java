@@ -73,7 +73,6 @@ public class NewsletterController {
                 combined.append(doc.getSummary()).append("\n\n");
             }
 
-            // Collect page images from this document (up to 3 total across all docs)
             if (doc.getPageImagesBase64() != null && allPageImages.size() < 3) {
                 for (String img : doc.getPageImagesBase64()) {
                     if (allPageImages.size() >= 3) break;
@@ -82,7 +81,6 @@ public class NewsletterController {
             }
         }
 
-        // Ask Ollama to extract structured stories
         String rawJson = ollamaService.extractStories(combined.toString());
 
         try {
@@ -94,10 +92,7 @@ public class NewsletterController {
             Map<String, Object> parsed = objectMapper.readValue(
                 clean, new TypeReference<Map<String, Object>>() {}
             );
-
-            // Inject page images into the response
             parsed.put("pageImages", allPageImages);
-
             return ResponseEntity.ok(parsed);
 
         } catch (Exception e) {
@@ -106,6 +101,30 @@ public class NewsletterController {
                 "raw", rawJson,
                 "pageImages", allPageImages
             ));
+        }
+    }
+
+    // ── Suggest LinkedIn search links for a topic via Ollama ──
+    @PostMapping("/suggest-links")
+    public ResponseEntity<Map<String, Object>> suggestLinks(@RequestBody Map<String, String> body) {
+        String topicTitle = body.getOrDefault("topicTitle", "");
+        if (topicTitle.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "topicTitle is required"));
+        }
+
+        String rawJson = ollamaService.suggestLinks(topicTitle);
+
+        try {
+            String clean = rawJson
+                .replaceAll("(?s)```json\\s*", "")
+                .replaceAll("```", "")
+                .trim();
+            Map<String, Object> parsed = objectMapper.readValue(
+                clean, new TypeReference<Map<String, Object>>() {}
+            );
+            return ResponseEntity.ok(parsed);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", "Could not parse response", "raw", rawJson));
         }
     }
 

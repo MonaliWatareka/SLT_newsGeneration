@@ -5,17 +5,132 @@ import toast from 'react-hot-toast';
 const emptySub = () => ({ title: '', content: '', link: '' });
 const NEWSLETTER_TITLE = 'InfiniAI Pulse - Top Stories in AI & Telecom';
 
+// ── Reusable link suggester row ──
+function LinkSuggester({ topicTitle, value, onChange, disabled }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggesting,  setSuggesting]  = useState(false);
+
+  const handleSuggest = async () => {
+    if (!topicTitle?.trim()) { toast.error('Enter a topic title first'); return; }
+    setSuggesting(true);
+    setSuggestions([]);
+    try {
+      const res = await fetch('/api/newsletters/suggest-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicTitle }),
+      });
+      const data = await res.json();
+      if (data.links?.length) {
+        setSuggestions(data.links);
+      } else {
+        toast.error('No links returned — try again');
+      }
+    } catch {
+      toast.error('Link suggestion failed');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input
+          className="finp"
+          type="url"
+          placeholder="https://…"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+          style={{ flex: 1, marginBottom: 0 }}
+        />
+        <button
+          className="btn-suggest"
+          onClick={handleSuggest}
+          disabled={disabled || suggesting}
+          title="Suggest LinkedIn links via Ollama"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '7px 11px', fontSize: 12, fontWeight: 600,
+            background: '#0a66c2', color: '#fff',
+            border: 'none', borderRadius: 6, cursor: 'pointer',
+            opacity: (disabled || suggesting) ? 0.6 : 1,
+            whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >
+          {suggesting ? (
+            <><div className="b-spin" style={{ width: 11, height: 11 }} /> Searching…</>
+          ) : (
+            <>
+              {/* LinkedIn icon */}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>
+              </svg>
+              Suggest
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Suggestion dropdown */}
+      {suggestions.length > 0 && (
+        <div style={{
+          marginTop: 6, background: '#0d1626',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 8, overflow: 'hidden',
+        }}>
+          {suggestions.map((s, i) => (
+            <div
+              key={i}
+              onClick={() => { onChange(s.url); setSuggestions([]); }}
+              style={{
+                padding: '9px 12px', cursor: 'pointer', fontSize: 12,
+                borderBottom: i < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(10,102,194,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#0a66c2">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>
+              </svg>
+              <div>
+                <div style={{ color: '#eef2ff', fontWeight: 600 }}>{s.label}</div>
+                <div style={{ color: '#5a9fd4', fontSize: 11, marginTop: 1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>
+                  {s.url}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div
+            onClick={() => setSuggestions([])}
+            style={{ padding: '7px 12px', fontSize: 11, color: '#7a9bbf',
+              cursor: 'pointer', textAlign: 'center' }}
+          >
+            Dismiss
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main editor ──
 export default function NewsletterEditor({ selectedDocIds, selectedDocuments, newsletter, onNewsletterGenerated }) {
   const [mainTitle,  setMainTitle]  = useState(newsletter?.mainTopicTitle || '');
   const [mainDesc,   setMainDesc]   = useState(newsletter?.mainTopicContent || '');
   const [mainLink,   setMainLink]   = useState(newsletter?.mainTopicLink || '');
   const [subs,       setSubs]       = useState([emptySub(), emptySub()]);
-  const [images,     setImages]     = useState([]);   // auto-filled from PDF pages
+  const [images,     setImages]     = useState([]);
   const [content,    setContent]    = useState(newsletter?.newsletterContent || '');
   const [loading,    setLoading]    = useState(false);
   const [extracting, setExtracting] = useState(false);
 
-  // ── AUTO-EXTRACT stories + page images from selected documents via Ollama ──
+  // ── Auto-extract stories + page images on document select ──
   useEffect(() => {
     if (!selectedDocIds?.length) return;
 
@@ -27,29 +142,25 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) {
-          toast.error('Story extraction failed — check Ollama');
-          return;
-        }
+        if (data.error) { toast.error('Story extraction failed — check Ollama'); return; }
 
-        // Auto-fill main story
         if (data.mainStory) {
-          setMainTitle(data.mainStory.title       || '');
-          setMainDesc (data.mainStory.description || '');
+          setMainTitle(data.mainStory.title || '');
+          // support both 'content' (new) and 'description' (old Ollama responses)
+          setMainDesc(data.mainStory.content || data.mainStory.description || '');
         }
 
-        // Auto-fill sub-stories
         if (data.subStories?.length) {
           const autoSubs = data.subStories.map(s => ({
-            title:   s.title       || '',
-            content: s.description || '',
+            title:   s.title || '',
+            // support both 'content' (new) and 'description' (old Ollama responses)
+            content: s.content || s.description || '',
             link:    '',
           }));
           while (autoSubs.length < 2) autoSubs.push(emptySub());
           setSubs(autoSubs);
         }
 
-        // Auto-fill page images from PDF rendering (max 3)
         if (data.pageImages?.length) {
           setImages(data.pageImages.slice(0, 3));
         }
@@ -110,7 +221,7 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
         </div>
       )}
 
-      {/* ── Auto-filled page image previews (read-only) ── */}
+      {/* ── Auto-extracted page previews ── */}
       {images.length > 0 && (
         <div>
           <label className="flbl">
@@ -160,14 +271,12 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
         </div>
 
         <div>
-          <label className="flbl">Article Link (optional · manual)</label>
-          <input
-            className="finp"
-            type="url"
-            placeholder="https://…"
+          <label className="flbl">Article Link (optional · manual or suggested)</label>
+          <LinkSuggester
+            topicTitle={mainTitle}
             value={mainLink}
-            onChange={e => setMainLink(e.target.value)}
-            disabled={loading}
+            onChange={setMainLink}
+            disabled={isDisabled}
           />
         </div>
       </div>
@@ -222,14 +331,12 @@ export default function NewsletterEditor({ selectedDocIds, selectedDocuments, ne
             </div>
 
             <div>
-              <label className="flbl">Learn More Link (optional · manual)</label>
-              <input
-                className="finp"
-                type="url"
-                placeholder="https://…"
+              <label className="flbl">Learn More Link (optional · manual or suggested)</label>
+              <LinkSuggester
+                topicTitle={s.title}
                 value={s.link}
-                onChange={e => updateSub(i, 'link', e.target.value)}
-                disabled={loading}
+                onChange={v => updateSub(i, 'link', v)}
+                disabled={isDisabled}
               />
             </div>
           </div>
