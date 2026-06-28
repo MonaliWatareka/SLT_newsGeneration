@@ -35,14 +35,22 @@ export default function HomePage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#060b18', color: '#eef2ff', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      background: '#060b18', color: '#eef2ff',
+      fontFamily: "'Inter', sans-serif",
+    }}>
       <Toaster position="top-right" toastOptions={{
-        style: { background: '#0d1626', color: '#eef2ff', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, fontFamily: "'Inter',sans-serif", fontSize: 13 },
+        style: {
+          background: '#0d1626', color: '#eef2ff',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12, fontFamily: "'Inter',sans-serif", fontSize: 13,
+        },
         success: { iconTheme: { primary: '#4ade80', secondary: '#0d1626' } },
         error:   { iconTheme: { primary: '#f87171', secondary: '#0d1626' } },
       }} />
 
-      {/* Background */}
+      {/* Background blobs */}
       <div className="canvas">
         <div className="grid-bg" />
         <div className="orb orb1" />
@@ -54,7 +62,6 @@ export default function HomePage() {
       <header className="hdr">
         <div className="hdr-top">
           <div className="brand">
-            {/* SLT Logo */}
             <img
               src={sltLogo}
               alt="SLTMobitel"
@@ -62,16 +69,16 @@ export default function HomePage() {
             />
             <div>
               <div className="brand-name">SLT-Mobitel News Generator</div>
-              <div className="brand-sub">AI-powered document summarization & newsletter creation</div>
+              <div className="brand-sub">AI-powered document summarization &amp; newsletter creation</div>
             </div>
           </div>
           <div className="hdr-right">
-            <div className="pill pill-model"><div className="pdot" />llama3.2 + llava</div>
-            <div className="pill pill-live"><div className="pdot" />Ollama Active</div>
+            <div className="pill pill-model"><div className="pdot" />gemini-2.5-flash</div>
+            <div className="pill pill-live"><div className="pdot" />Vertex AI Active</div>
           </div>
         </div>
 
-        {/* Steps */}
+        {/* Step progress */}
         <div className="steps">
           {steps.map((s, i) => {
             const cls = s.done ? 's-done' : s.active ? 's-active' : 's-idle';
@@ -80,7 +87,10 @@ export default function HomePage() {
                 <div className={`step ${cls}`}>
                   <div className="sn">
                     {s.done
-                      ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                          <polyline points="20 6 9 17 4 12" stroke="currentColor"
+                                    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       : i + 1}
                   </div>
                   {s.label}
@@ -98,13 +108,12 @@ export default function HomePage() {
         {/* LEFT column */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
-          {/* Upload */}
           <div className="card card-blue">
             <div className="card-head">
               <span className="cbadge cb-blue">01</span>
               <div>
                 <div className="ctitle">Upload Document</div>
-                <div className="csub">PDF files → llama3.2 · Images → llava vision model</div>
+                <div className="csub">PDF files &amp; Images → gemini-2.5-flash · Vertex AI</div>
               </div>
             </div>
             <div className="card-body">
@@ -112,7 +121,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Select */}
           <div className="card">
             <div className="card-head">
               <span className="cbadge cb-violet">02</span>
@@ -140,13 +148,12 @@ export default function HomePage() {
         {/* RIGHT column */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
-          {/* Generate */}
           <div className="card">
             <div className="card-head">
               <span className="cbadge cb-teal">03</span>
               <div>
                 <div className="ctitle">Generate Newsletter</div>
-                <div className="csub">llama3.2 writes content · Add topics, links & images</div>
+                <div className="csub">Gemini writes content · Real web links via Google Search</div>
               </div>
             </div>
             <div className="card-body">
@@ -159,7 +166,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Send */}
           {newsletter && (
             <div className="card card-green">
               <div className="card-head">
@@ -179,9 +185,9 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="ftr">
-        <span className="ftr-l">© 2026 SLTMobitel | InfiniAI — AI & Data Office</span>
+        <span className="ftr-l">© 2026 SLTMobitel | InfiniAI — AI &amp; Data Office</span>
         <div className="ftr-tags">
-          {['Spring Boot', 'React + Vite', 'MongoDB Atlas', 'Ollama AI'].map(t => (
+          {['Spring Boot', 'React + Vite', 'MongoDB Atlas', 'Vertex AI · gemini-2.5-flash'].map(t => (
             <span key={t} className="ftr-tag">{t}</span>
           ))}
         </div>

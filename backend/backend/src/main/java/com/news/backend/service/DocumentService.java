@@ -26,7 +26,7 @@ import java.util.UUID;
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
-    private final OllamaService ollamaService;
+    private final VertexAiService vertexAiService;   // ← was OllamaService
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -36,7 +36,7 @@ public class DocumentService {
         Path uploadPath = Paths.get(uploadDir);
         Files.createDirectories(uploadPath);
         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(filename);
+        Path filePath   = uploadPath.resolve(filename);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         String fileType = detectType(file);
@@ -44,17 +44,17 @@ public class DocumentService {
         List<String> pageImages = new ArrayList<>();
 
         if ("pdf".equals(fileType)) {
-            // Extract text → summarize with llama3.2
+            // Extract text → summarize with gemini-2.5-flash
             String extractedText = extractPdfText(filePath.toFile());
-            summary = ollamaService.summarizeText(extractedText);
+            summary    = vertexAiService.summarizeText(extractedText);
 
-            // Render each PDF page to a JPEG base64 string (max 7 pages)
+            // Render each PDF page as a base64 JPEG (max 7 pages)
             pageImages = renderPdfPages(filePath.toFile());
 
         } else {
-            // Image file → describe with llava
+            // Image file → describe with gemini-2.5-flash (multimodal)
             String base64 = Base64.getEncoder().encodeToString(file.getBytes());
-            summary = ollamaService.describeImage(base64);
+            summary = vertexAiService.describeImage(base64);
 
             // Store the image itself as the single "page"
             pageImages.add(base64);
@@ -71,18 +71,15 @@ public class DocumentService {
         return documentRepository.save(doc);
     }
 
-    // ── Render each PDF page as a base64 JPEG ──
+    // ── Render each PDF page as a base64 JPEG (150 DPI, max 7 pages) ────────
     private List<String> renderPdfPages(File file) throws IOException {
         List<String> pages = new ArrayList<>();
         try (PDDocument pdf = Loader.loadPDF(file)) {
-            PDFRenderer renderer = new PDFRenderer(pdf);
-            int pageCount = Math.min(pdf.getNumberOfPages(), 7); // cap at 7 pages
-
+            PDFRenderer renderer  = new PDFRenderer(pdf);
+            int         pageCount = Math.min(pdf.getNumberOfPages(), 7);
             for (int i = 0; i < pageCount; i++) {
-                // 150 DPI is a good balance: readable quality, reasonable file size
-                BufferedImage image = renderer.renderImageWithDPI(i, 150);
-
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                BufferedImage         image = renderer.renderImageWithDPI(i, 150);
+                ByteArrayOutputStream baos  = new ByteArrayOutputStream();
                 ImageIO.write(image, "JPEG", baos);
                 pages.add(Base64.getEncoder().encodeToString(baos.toByteArray()));
             }
@@ -92,7 +89,7 @@ public class DocumentService {
 
     private String detectType(MultipartFile file) {
         String ct = file.getContentType();
-        if (ct != null && ct.startsWith("image/")) return "image";
+        if (ct != null && ct.startsWith("image/"))      return "image";
         if (ct != null && ct.equals("application/pdf")) return "pdf";
         return "unknown";
     }
