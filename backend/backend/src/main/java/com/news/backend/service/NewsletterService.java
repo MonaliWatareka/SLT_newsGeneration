@@ -20,18 +20,18 @@ public class NewsletterService {
     private static final String NEWSLETTER_TITLE = "InfiniAI Pulse - Top Stories in AI & Telecom";
 
     private final NewsletterRepository newsletterRepository;
-    private final DocumentRepository documentRepository;
-    private final OllamaService ollamaService;
-    private final TemplateEngine templateEngine;
+    private final DocumentRepository   documentRepository;
+    private final VertexAiService      vertexAiService;   // ← was OllamaService
+    private final TemplateEngine       templateEngine;
 
-    // ── Called when user clicks "Generate Newsletter" ──
+    /** Called when the user clicks "Generate Newsletter". */
     public Newsletter generateFromDocuments(
-            List<String> documentIds,
-            String title,
-            String mainTopicTitle,
-            String mainTopicLink,
+            List<String>   documentIds,
+            String         title,
+            String         mainTopicTitle,
+            String         mainTopicLink,
             List<SubTopic> subTopics,
-            List<String> imageBase64List
+            List<String>   imageBase64List
     ) {
         StringBuilder combinedSummary = new StringBuilder();
         for (String docId : documentIds) {
@@ -40,12 +40,11 @@ public class NewsletterService {
             combinedSummary.append(doc.getSummary()).append("\n\n");
         }
 
-        // Always use the permanent title — ignore whatever user typed
-        String newsletterContent = ollamaService.generateNewsletter(
+        // Always use the permanent title — ignore whatever the user typed
+        String newsletterContent = vertexAiService.generateNewsletter(
             combinedSummary.toString(), NEWSLETTER_TITLE
         );
 
-        // Render HTML template with all fields
         String templateHtml = renderTemplate(
             NEWSLETTER_TITLE, newsletterContent,
             mainTopicTitle, mainTopicLink,
@@ -60,7 +59,6 @@ public class NewsletterService {
         newsletter.setDocumentIds(documentIds);
         newsletter.setCreatedAt(LocalDateTime.now());
         newsletter.setEmailSent(false);
-
         newsletter.setMainTopicTitle(mainTopicTitle);
         newsletter.setMainTopicContent(formatHtml(newsletterContent));
         newsletter.setMainTopicLink(mainTopicLink);
@@ -70,13 +68,12 @@ public class NewsletterService {
         return newsletterRepository.save(newsletter);
     }
 
-    // ── Called when user edits and saves ──
+    /** Called when the user edits and saves. */
     public Newsletter updateContent(String id, String newContent, String title) {
         Newsletter nl = getById(id);
         nl.setNewsletterContent(newContent);
-        nl.setTitle(NEWSLETTER_TITLE);   // always keep permanent title
+        nl.setTitle(NEWSLETTER_TITLE);
         nl.setMainTopicContent(formatHtml(newContent));
-
         nl.setTemplateHtml(renderTemplate(
             NEWSLETTER_TITLE, newContent,
             nl.getMainTopicTitle(), nl.getMainTopicLink(),
@@ -85,37 +82,36 @@ public class NewsletterService {
         return newsletterRepository.save(nl);
     }
 
-    // ── Core template renderer ──
+    // ── Core Thymeleaf template renderer ──────────────────────────────────
     private String renderTemplate(
-            String title,
-            String content,
-            String mainTopicTitle,
-            String mainTopicLink,
+            String         title,
+            String         content,
+            String         mainTopicTitle,
+            String         mainTopicLink,
             List<SubTopic> subTopics,
-            List<String> imageBase64List
+            List<String>   imageBase64List
     ) {
         Context ctx = new Context();
-        ctx.setVariable("title", title);
-        ctx.setVariable("content", formatHtml(content));
-        ctx.setVariable("generatedDate", LocalDateTime.now().toString());
-        ctx.setVariable("mainTopicTitle", mainTopicTitle != null ? mainTopicTitle : "");
+        ctx.setVariable("title",            title);
+        ctx.setVariable("content",          formatHtml(content));
+        ctx.setVariable("generatedDate",    LocalDateTime.now().toString());
+        ctx.setVariable("mainTopicTitle",   mainTopicTitle  != null ? mainTopicTitle  : "");
         ctx.setVariable("mainTopicContent", formatHtml(content));
-        ctx.setVariable("mainTopicLink", mainTopicLink != null ? mainTopicLink : "");
-        ctx.setVariable("subTopics", subTopics != null ? subTopics : List.of());
-        ctx.setVariable("imageBase64List", imageBase64List != null ? imageBase64List : List.of());
-
+        ctx.setVariable("mainTopicLink",    mainTopicLink   != null ? mainTopicLink   : "");
+        ctx.setVariable("subTopics",        subTopics       != null ? subTopics       : List.of());
+        ctx.setVariable("imageBase64List",  imageBase64List != null ? imageBase64List : List.of());
         return templateEngine.process("newsletter-template", ctx);
     }
 
-    // ── Convert plain text to HTML line breaks ──
+    // ── Convert plain-text newlines to HTML <br/> ─────────────────────────
     private String formatHtml(String text) {
         if (text == null) return "";
         return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
+            .replace("&",    "&amp;")
+            .replace("<",    "&lt;")
+            .replace(">",    "&gt;")
             .replace("\r\n", "<br/>")
-            .replace("\n", "<br/>");
+            .replace("\n",   "<br/>");
     }
 
     public List<Newsletter> getAllNewsletters() {

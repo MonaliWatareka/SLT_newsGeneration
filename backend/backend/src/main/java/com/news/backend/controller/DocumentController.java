@@ -1,6 +1,5 @@
 package com.news.backend.controller;
 
-
 import com.news.backend.model.NewsDocument;
 import com.news.backend.service.DocumentService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +20,7 @@ public class DocumentController {
         try {
             return ResponseEntity.ok(documentService.uploadAndProcess(file));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }
