@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,7 +60,7 @@ public class NewsletterController {
         );
     }
 
-    // ── Auto-extract stories + page images ────────────────────────────────
+    // ── Auto-extract stories + page images + WORKING LINKS (all automatic) ──
     @PostMapping("/extract-stories")
     public ResponseEntity<Map<String, Object>> extractStories(@RequestBody Map<String, Object> body) {
         List<String> docIds = (List<String>) body.get("documentIds");
@@ -93,6 +94,29 @@ public class NewsletterController {
                 clean, new TypeReference<Map<String, Object>>() {}
             );
             parsed.put("pageImages", allPageImages);
+
+            // ── AUTO-FETCH a verified working link for the main story ──────
+            Map<String, Object> mainStory = (Map<String, Object>) parsed.get("mainStory");
+            if (mainStory != null) {
+                String mainTitle = (String) mainStory.get("title");
+                if (mainTitle != null && !mainTitle.isBlank()) {
+                    String link = fetchFirstWorkingLink(mainTitle);
+                    mainStory.put("link", link); // may be "" if nothing verified
+                }
+            }
+
+            // ── AUTO-FETCH a verified working link for every sub-story ─────
+            List<Map<String, Object>> subStories = (List<Map<String, Object>>) parsed.get("subStories");
+            if (subStories != null) {
+                for (Map<String, Object> sub : subStories) {
+                    String subTitle = (String) sub.get("title");
+                    if (subTitle != null && !subTitle.isBlank()) {
+                        String link = fetchFirstWorkingLink(subTitle);
+                        sub.put("link", link);
+                    }
+                }
+            }
+
             return ResponseEntity.ok(parsed);
         } catch (Exception e) {
             return ResponseEntity.ok(Map.of(
@@ -103,7 +127,54 @@ public class NewsletterController {
         }
     }
 
-    // ── Suggest real web links via Gemini + Google Search Grounding ───────
+    /**
+     * Asks Gemini for up to 5 candidate links on a topic, HEAD-checks each one,
+     * and returns the FIRST one that is actually alive. Returns "" if none work.
+     */
+    private String fetchFirstWorkingLink(String topicTitle) {
+        try {
+            String rawJson = vertexAiService.suggestLinks(topicTitle);
+            String clean = rawJson
+                .replaceAll("(?s)```json\\s*", "")
+                .replaceAll("```", "")
+                .trim();
+            Map<String, Object> parsed = objectMapper.readValue(
+                clean, new TypeReference<Map<String, Object>>() {}
+            );
+            List<Map<String, String>> links = (List<Map<String, String>>) parsed.get("links");
+            if (links == null) return "";
+
+            for (Map<String, String> link : links) {
+                String url = link.get("url");
+                if (url != null && !url.isBlank() && isUrlAlive(url)) {
+                    return url; // first verified working link wins
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to empty string — frontend will show "no link found"
+        }
+        return "";
+    }
+
+    /** HEAD-checks a single URL and returns true if it responds with 2xx/3xx. */
+    private boolean isUrlAlive(String url) {
+        try {
+            HttpURLConnection con = (HttpURLConnection) new URI(url).toURL().openConnection();
+            con.setRequestMethod("HEAD");
+            con.setConnectTimeout(4000);
+            con.setReadTimeout(4000);
+            con.setInstanceFollowRedirects(true);
+            con.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            int code = con.getResponseCode();
+            con.disconnect();
+            return code >= 200 && code < 400;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ── Suggest real web links (still available for manual re-search) ─────
     @PostMapping("/suggest-links")
     public ResponseEntity<Map<String, Object>> suggestLinks(@RequestBody Map<String, String> body) {
         String topicTitle = body.getOrDefault("topicTitle", "");
@@ -126,25 +197,11 @@ public class NewsletterController {
         }
     }
 
-    // ── HEAD-check a URL and return whether it is alive (2xx/3xx) ────────
+    // ── HEAD-check a URL — used by frontend's manual re-search flow ───────
     @GetMapping("/check-link")
     public ResponseEntity<Map<String, Object>> checkLink(@RequestParam String url) {
-        try {
-            HttpURLConnection con = (HttpURLConnection) new URI(url).toURL().openConnection();
-            con.setRequestMethod("HEAD");
-            con.setConnectTimeout(5000);
-            con.setReadTimeout(5000);
-            con.setInstanceFollowRedirects(true);
-            con.setRequestProperty("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-            int    code  = con.getResponseCode();
-            boolean alive = (code >= 200 && code < 400);
-            con.disconnect();
-            return ResponseEntity.ok(Map.of("alive", alive, "status", code, "url", url));
-        } catch (Exception e) {
-            // If we can't reach it at all, treat it as dead
-            return ResponseEntity.ok(Map.of("alive", false, "status", 0, "url", url));
-        }
+        boolean alive = isUrlAlive(url);
+        return ResponseEntity.ok(Map.of("alive", alive, "url", url));
     }
 
     // ── Get all newsletters ───────────────────────────────────────────────
