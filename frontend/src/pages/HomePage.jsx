@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import FileUpload from '../components/FileUpload';
-import SummaryPanel from '../components/SummaryPanel';
 import NewsletterEditor from '../components/NewsletterEditor';
 import EmailSender from '../components/EmailSender';
 import { getDocuments, deleteDocument } from '../api/api';
@@ -13,25 +12,32 @@ export default function HomePage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [newsletter,  setNewsletter]  = useState(null);
 
+  // Load existing documents on mount and auto-select the latest one
   useEffect(() => {
-    getDocuments().then(r => setDocuments(r.data)).catch(() => {});
+    getDocuments()
+      .then(r => {
+        const docs = r.data;
+        setDocuments(docs);
+        // Auto-select the most recent document if any exist
+        if (docs.length > 0) {
+          setSelectedIds([docs[0].id]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const toggleSelect = id =>
-    setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-
-  const handleDelete = async id => {
-    await deleteDocument(id);
-    setDocuments(p => p.filter(d => d.id !== id));
-    setSelectedIds(p => p.filter(x => x !== id));
-    toast.success('Document removed');
+  // When a new document is uploaded → auto-select it immediately
+  const handleDocumentUploaded = (doc) => {
+    setDocuments(p => [doc, ...p]);
+    setSelectedIds([doc.id]);   // ← auto-select, skips Step 2 entirely
+    setNewsletter(null);        // reset any previous newsletter
   };
 
+  // 3-step progress (Upload, Generate, Send — Step 2 hidden)
   const steps = [
-    { label: 'Upload',   done: documents.length > 0,   active: documents.length === 0 },
-    { label: 'Select',   done: selectedIds.length > 0, active: documents.length > 0 && selectedIds.length === 0 },
-    { label: 'Generate', done: !!newsletter,            active: selectedIds.length > 0 && !newsletter },
-    { label: 'Send',     done: false,                   active: !!newsletter },
+    { label: 'Upload',   done: documents.length > 0,  active: documents.length === 0 },
+    { label: 'Generate', done: !!newsletter,           active: selectedIds.length > 0 && !newsletter },
+    { label: 'Send',     done: false,                  active: !!newsletter },
   ];
 
   return (
@@ -78,7 +84,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Step progress */}
+        {/* 3-step progress bar (Step 2 removed) */}
         <div className="steps">
           {steps.map((s, i) => {
             const cls = s.done ? 's-done' : s.active ? 's-active' : 's-idle';
@@ -95,7 +101,7 @@ export default function HomePage() {
                   </div>
                   {s.label}
                 </div>
-                {i < 3 && <span className="sarr">›</span>}
+                {i < steps.length - 1 && <span className="sarr">›</span>}
               </div>
             );
           })}
@@ -105,7 +111,7 @@ export default function HomePage() {
       {/* Main two-column grid */}
       <div className="main" style={{ flex: 1 }}>
 
-        {/* LEFT column */}
+        {/* LEFT column — Upload only (Select card removed) */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
           <div className="card card-blue">
@@ -113,44 +119,114 @@ export default function HomePage() {
               <span className="cbadge cb-blue">01</span>
               <div>
                 <div className="ctitle">Upload Document</div>
-                <div className="csub">PDF files &amp; Images → gemini-2.5-flash · Vertex AI</div>
-              </div>
-            </div>
-            <div className="card-body">
-              <FileUpload onDocumentUploaded={doc => setDocuments(p => [doc, ...p])} />
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-head">
-              <span className="cbadge cb-violet">02</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="ctitle">Select Documents</div>
+                <div className="csub">
+                  PDF files &amp; Images → gemini-2.5-flash · Vertex AI
                   {selectedIds.length > 0 && (
-                    <span className="sel-pill">{selectedIds.length} selected</span>
+                    <span style={{
+                      marginLeft: 10, fontSize: 11, fontWeight: 600,
+                      color: '#4ade80', background: 'rgba(74,222,128,0.1)',
+                      padding: '2px 8px', borderRadius: 10,
+                      border: '1px solid rgba(74,222,128,0.25)',
+                    }}>
+                      ✓ Document ready
+                    </span>
                   )}
                 </div>
-                <div className="csub">Click to select documents to include in your newsletter</div>
               </div>
             </div>
             <div className="card-body">
-              <SummaryPanel
-                documents={documents}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-                onDelete={handleDelete}
-              />
+              <FileUpload onDocumentUploaded={handleDocumentUploaded} />
             </div>
           </div>
+
+          {/* Recently uploaded documents — compact list, no selection needed */}
+          {documents.length > 0 && (
+            <div className="card" style={{ padding: '16px 20px' }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '1.5px',
+                textTransform: 'uppercase', color: '#5a9fd4', marginBottom: 10,
+              }}>
+                Uploaded Documents
+              </div>
+              {documents.slice(0, 5).map(doc => (
+                <div
+                  key={doc.id}
+                  onClick={() => {
+                    setSelectedIds([doc.id]);
+                    setNewsletter(null);
+                    toast.success(`Switched to: ${doc.originalFileName}`);
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                    marginBottom: 4,
+                    background: selectedIds.includes(doc.id)
+                      ? 'rgba(74,222,128,0.08)' : 'transparent',
+                    border: selectedIds.includes(doc.id)
+                      ? '1px solid rgba(74,222,128,0.2)' : '1px solid transparent',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!selectedIds.includes(doc.id))
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={e => {
+                    if (!selectedIds.includes(doc.id))
+                      e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  {/* File icon */}
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 6, flexShrink: 0,
+                    background: selectedIds.includes(doc.id)
+                      ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {selectedIds.includes(doc.id) ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <polyline points="20 6 9 17 4 12" stroke="#4ade80"
+                                  strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                              stroke="#5a9fd4" strokeWidth="1.6"
+                              strokeLinecap="round" strokeLinejoin="round"/>
+                        <polyline points="14 2 14 8 20 8" stroke="#5a9fd4"
+                                  strokeWidth="1.6" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* File name + status */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 12, fontWeight: 600,
+                      color: selectedIds.includes(doc.id) ? '#4ade80' : '#eef2ff',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {doc.originalFileName}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#5a7a9f', marginTop: 1 }}>
+                      {doc.fileType?.toUpperCase()} ·{' '}
+                      {new Date(doc.uploadedAt).toLocaleDateString()}
+                      {selectedIds.includes(doc.id) && (
+                        <span style={{ color: '#4ade80', marginLeft: 6 }}>● Active</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* RIGHT column */}
+        {/* RIGHT column — Generate + Send */}
         <div className="page-col" style={{ minWidth: 0 }}>
 
           <div className="card">
             <div className="card-head">
-              <span className="cbadge cb-teal">03</span>
+              <span className="cbadge cb-teal">02</span>
               <div>
                 <div className="ctitle">Generate Newsletter</div>
                 <div className="csub">Gemini writes content · Real web links via Google Search</div>
@@ -169,7 +245,7 @@ export default function HomePage() {
           {newsletter && (
             <div className="card card-green">
               <div className="card-head">
-                <span className="cbadge cb-green">04</span>
+                <span className="cbadge cb-green">03</span>
                 <div>
                   <div className="ctitle">Send or Download</div>
                   <div className="csub">Deliver via Gmail or save as HTML file</div>
