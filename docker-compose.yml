@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: slt-backend
     ports:
-      - "8080:8080"
+      - "8085:8080"
     environment:
       - SPRING_DATA_MONGODB_URI=${MONGO_URI}
       - VERTEX_PROJECT_ID=infinai-500311
