@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { updateNewsletter } from '../api/api';
 import toast from 'react-hot-toast';
 
@@ -16,7 +16,7 @@ async function isLinkAlive(url) {
   }
 }
 
-// ── Google Search link suggester (manual re-search, still available) ────────
+// ── Google Search link suggester with live validation ────────────────────────
 function LinkSuggester({ topicTitle, value, onChange, disabled }) {
   const [suggestions, setSuggestions] = useState([]);
   const [suggesting,  setSuggesting]  = useState(false);
@@ -24,10 +24,8 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
 
   const handleSuggest = async () => {
     if (!topicTitle?.trim()) { toast.error('Enter a topic title first'); return; }
-
     setSuggesting(true);
     setSuggestions([]);
-
     try {
       const res  = await fetch('/api/newsletters/suggest-links', {
         method:  'POST',
@@ -35,11 +33,7 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
         body:    JSON.stringify({ topicTitle }),
       });
       const data = await res.json();
-
-      if (!data.links?.length) {
-        toast.error('No links returned — try again');
-        return;
-      }
+      if (!data.links?.length) { toast.error('No links returned — try again'); return; }
 
       setSuggesting(false);
       setValidating(true);
@@ -50,15 +44,12 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
           return alive ? link : null;
         })
       );
-
       const alive = checks.filter(Boolean).slice(0, 3);
-
       if (alive.length) {
         setSuggestions(alive);
       } else {
-        toast.error('All suggested links are currently unavailable — try again');
+        toast.error('All suggested links unavailable — try again');
       }
-
     } catch {
       toast.error('Link suggestion failed');
     } finally {
@@ -117,18 +108,16 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
       </div>
 
       {validating && (
-        <div style={{ fontSize: 11, color: '#5a9fd4', marginTop: 5, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <div style={{ fontSize: 11, color: '#5a9fd4', marginTop: 5,
+          display: 'flex', alignItems: 'center', gap: 5 }}>
           <div className="b-spin" style={{ width: 9, height: 9 }} />
           Verifying links are live…
         </div>
       )}
 
-      {/* Auto-found confirmation badge */}
       {!isBusy && value && suggestions.length === 0 && (
-        <div style={{
-          fontSize: 11, color: '#4ade80', marginTop: 5,
-          display: 'flex', alignItems: 'center', gap: 5,
-        }}>
+        <div style={{ fontSize: 11, color: '#4ade80', marginTop: 5,
+          display: 'flex', alignItems: 'center', gap: 5 }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
             <polyline points="20 6 9 17 4 12" stroke="#4ade80" strokeWidth="2.5"
                       strokeLinecap="round" strokeLinejoin="round"/>
@@ -155,10 +144,8 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
             </svg>
             {suggestions.length} working link{suggestions.length > 1 ? 's' : ''} verified
           </div>
-
           {suggestions.map((s, i) => (
-            <div
-              key={i}
+            <div key={i}
               onClick={() => { onChange(s.url); setSuggestions([]); }}
               style={{
                 padding: '9px 12px', cursor: 'pointer', fontSize: 12,
@@ -169,28 +156,22 @@ function LinkSuggester({ topicTitle, value, onChange, disabled }) {
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(66,133,244,0.18)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+              <div style={{ width: 6, height: 6, borderRadius: '50%',
+                background: '#4ade80', flexShrink: 0 }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: '#eef2ff', fontWeight: 600 }}>{s.label}</div>
-                <div style={{
-                  color: '#5a9fd4', fontSize: 11, marginTop: 1,
+                <div style={{ color: '#5a9fd4', fontSize: 11, marginTop: 1,
                   overflow: 'hidden', textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap', maxWidth: 360,
-                }}>
+                  whiteSpace: 'nowrap', maxWidth: 360 }}>
                   {s.url}
                 </div>
               </div>
             </div>
           ))}
-
-          <div
-            onClick={() => setSuggestions([])}
-            style={{
-              padding: '7px 12px', fontSize: 11, color: '#7a9bbf',
+          <div onClick={() => setSuggestions([])}
+            style={{ padding: '7px 12px', fontSize: 11, color: '#7a9bbf',
               cursor: 'pointer', textAlign: 'center',
-              borderTop: '1px solid rgba(255,255,255,0.04)',
-            }}
-          >
+              borderTop: '1px solid rgba(255,255,255,0.04)' }}>
             Dismiss
           </div>
         </div>
@@ -208,24 +189,24 @@ export default function NewsletterEditor({
 }) {
   const docIds = Array.isArray(selectedDocIds) ? selectedDocIds : [];
 
-  const [mainTitle,  setMainTitle]  = useState(newsletter?.mainTopicTitle   || '');
-  const [mainDesc,   setMainDesc]   = useState(newsletter?.mainTopicContent || '');
-  const [mainLink,   setMainLink]   = useState(newsletter?.mainTopicLink    || '');
-  const [subs,       setSubs]       = useState([emptySub(), emptySub()]);
-  const [images,     setImages]     = useState([]);
-  const [content,    setContent]    = useState(newsletter?.newsletterContent || '');
-  const [loading,    setLoading]    = useState(false);
-  const [extracting, setExtracting] = useState(false);
+  const [mainTitle,   setMainTitle]   = useState(newsletter?.mainTopicTitle   || '');
+  const [mainDesc,    setMainDesc]    = useState(newsletter?.mainTopicContent || '');
+  const [mainLink,    setMainLink]    = useState(newsletter?.mainTopicLink    || '');
+  const [subs,        setSubs]        = useState([emptySub(), emptySub()]);
+  const [images,      setImages]      = useState([]);
+  const [content,     setContent]     = useState(newsletter?.newsletterContent || '');
+  const [loading,     setLoading]     = useState(false);
+  const [extracting,  setExtracting]  = useState(false);
+  const [regenerating, setRegenerating] = useState(false);  // ← NEW
 
-  // ── Auto-extract stories + page images + WORKING LINKS — fully automatic ──
-  useEffect(() => {
-    if (!docIds.length) return;
+  // ── Core extract function — extracted so Regenerate can call it too ────────
+  const runExtraction = useCallback(async (ids) => {
+    if (!ids?.length) return;
 
-    setExtracting(true);
-    fetch('/api/newsletters/extract-stories', {
+    return fetch('/api/newsletters/extract-stories', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ documentIds: docIds }),
+      body:    JSON.stringify({ documentIds: ids }),
     })
       .then(r => r.json())
       .then(data => {
@@ -233,35 +214,63 @@ export default function NewsletterEditor({
           toast.error('Story extraction failed — check Vertex AI config');
           return;
         }
-
         if (data.mainStory) {
           setMainTitle(data.mainStory.title   || '');
           setMainDesc(data.mainStory.content  || data.mainStory.description || '');
-          setMainLink(data.mainStory.link     || '');   // ← auto-filled link
+          setMainLink(data.mainStory.link     || '');
         }
-
         if (data.subStories?.length) {
           const autoSubs = data.subStories.map(s => ({
             title:   s.title   || '',
             content: s.content || s.description || '',
-            link:    s.link    || '',                    // ← auto-filled link
+            link:    s.link    || '',
           }));
           while (autoSubs.length < 2) autoSubs.push(emptySub());
           setSubs(autoSubs);
         }
-
         if (data.pageImages?.length) setImages(data.pageImages.slice(0, 3));
 
-        const mainHasLink = !!data.mainStory?.link;
-        const subsWithLinks = (data.subStories || []).filter(s => s.link).length;
+        const mainHasLink    = !!data.mainStory?.link;
+        const subsWithLinks  = (data.subStories || []).filter(s => s.link).length;
         if (mainHasLink || subsWithLinks > 0) {
-          toast.success(`Auto-found ${ (mainHasLink ? 1 : 0) + subsWithLinks } working link(s)!`);
+          toast.success(`Auto-found ${(mainHasLink ? 1 : 0) + subsWithLinks} working link(s)!`);
         }
-      })
+      });
+  }, []);
+
+  // ── Auto-extract when document selection changes ───────────────────────────
+  useEffect(() => {
+    if (!docIds.length) return;
+    setExtracting(true);
+    runExtraction(docIds)
       .catch(() => toast.error('Could not reach /extract-stories endpoint'))
       .finally(() => setExtracting(false));
-
   }, [docIds.join(',')]);
+
+  // ── Regenerate — clears all fields and re-runs extraction ─────────────────
+  const handleRegenerate = async () => {
+    if (!docIds.length) { toast.error('No document selected'); return; }
+
+    // Clear everything first
+    setMainTitle('');
+    setMainDesc('');
+    setMainLink('');
+    setSubs([emptySub(), emptySub()]);
+    setImages([]);
+    setContent('');
+
+    setRegenerating(true);
+    toast('Regenerating from PDF…', { icon: '🔄' });
+
+    try {
+      await runExtraction(docIds);
+      toast.success('Regenerated successfully!');
+    } catch {
+      toast.error('Regeneration failed — try again');
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const updateSub = (i, f, v) =>
     setSubs(p => p.map((s, idx) => idx === i ? { ...s, [f]: v } : s));
@@ -305,18 +314,22 @@ export default function NewsletterEditor({
     } catch { toast.error('Save failed'); }
   };
 
-  const isDisabled = loading || extracting;
+  const isDisabled = loading || extracting || regenerating;
 
   return (
     <div className="editor">
 
-      {extracting && (
+      {/* ── Extraction / Regeneration notice ── */}
+      {(extracting || regenerating) && (
         <div className="gen-notice">
           <div className="ndot" />
-          Analysing PDF with gemini-2.5-flash — extracting stories, links &amp; rendering pages…
+          {regenerating
+            ? 'Regenerating — fetching fresh stories & links from PDF…'
+            : 'Analysing PDF with gemini-2.5-flash — extracting stories & links…'}
         </div>
       )}
 
+      {/* ── Page image previews ── */}
       {images.length > 0 && (
         <div>
           <label className="flbl">
@@ -331,27 +344,32 @@ export default function NewsletterEditor({
         </div>
       )}
 
-      {/* Main Topic */}
+      {/* ── Main Topic ── */}
       <div className="sect-block">
         <div className="sect-head">
           <span className="sect-badge sb-main">Main Topic</span>
           <span className="sect-hint">
             Today's Top Story
-            {extracting && <span style={{ marginLeft: 6, opacity: 0.6 }}>(extracting…)</span>}
+            {(extracting || regenerating) && (
+              <span style={{ marginLeft: 6, opacity: 0.6 }}>(extracting…)</span>
+            )}
           </span>
         </div>
 
         <div>
           <label className="flbl">Topic Title</label>
           <input className="finp" type="text"
-            placeholder={extracting ? 'Extracting from PDF…' : 'e.g. The Ontology Pipeline Revolution'}
-            value={mainTitle} onChange={e => setMainTitle(e.target.value)} disabled={isDisabled} />
+            placeholder={(extracting || regenerating) ? 'Extracting from PDF…'
+              : 'e.g. The Ontology Pipeline Revolution'}
+            value={mainTitle} onChange={e => setMainTitle(e.target.value)}
+            disabled={isDisabled} />
         </div>
 
         <div>
           <label className="flbl">Description (auto-filled · editable)</label>
           <textarea className="finp" rows={3}
-            placeholder={extracting ? 'Extracting from PDF…' : 'Brief description of the main topic…'}
+            placeholder={(extracting || regenerating) ? 'Extracting from PDF…'
+              : 'Brief description of the main topic…'}
             value={mainDesc} onChange={e => setMainDesc(e.target.value)}
             disabled={isDisabled} style={{ minHeight: 70 }} />
         </div>
@@ -363,13 +381,15 @@ export default function NewsletterEditor({
         </div>
       </div>
 
-      {/* Sub Topics */}
+      {/* ── Sub Topics ── */}
       <div className="sect-block">
         <div className="sect-head">
           <span className="sect-badge sb-sub">Sub Topics</span>
           <span className="sect-hint">
             More Stories This Week · auto-filled from PDF
-            {extracting && <span style={{ marginLeft: 6, opacity: 0.6 }}>(extracting…)</span>}
+            {(extracting || regenerating) && (
+              <span style={{ marginLeft: 6, opacity: 0.6 }}>(extracting…)</span>
+            )}
           </span>
         </div>
 
@@ -380,8 +400,10 @@ export default function NewsletterEditor({
               {subs.length > 1 && (
                 <button className="sub-rm" onClick={() => removeSub(i)} title="Remove">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <line x1="18" y1="6"  x2="6"  y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1="6"  y1="6"  x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="18" y1="6"  x2="6"  y2="18" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="6"  y1="6"  x2="18" y2="18" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </button>
               )}
@@ -390,7 +412,7 @@ export default function NewsletterEditor({
             <div>
               <label className="flbl">Title</label>
               <input className="finp" type="text"
-                placeholder={extracting ? 'Extracting from PDF…' : 'Story title…'}
+                placeholder={(extracting || regenerating) ? 'Extracting from PDF…' : 'Story title…'}
                 value={s.title} onChange={e => updateSub(i, 'title', e.target.value)}
                 disabled={isDisabled} />
             </div>
@@ -398,7 +420,7 @@ export default function NewsletterEditor({
             <div>
               <label className="flbl">Description (auto-filled · editable)</label>
               <textarea className="finp" rows={2}
-                placeholder={extracting ? 'Extracting from PDF…' : 'Brief description…'}
+                placeholder={(extracting || regenerating) ? 'Extracting from PDF…' : 'Brief description…'}
                 value={s.content} onChange={e => updateSub(i, 'content', e.target.value)}
                 disabled={isDisabled} style={{ minHeight: 60 }} />
             </div>
@@ -413,32 +435,82 @@ export default function NewsletterEditor({
 
         <button className="add-sub" onClick={addSub} disabled={isDisabled}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <line x1="12" y1="5"  x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="5"  y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="12" y1="5"  x2="12" y2="19" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round"/>
+            <line x1="5"  y1="12" x2="19" y2="12" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round"/>
           </svg>
           Add story
         </button>
       </div>
 
-      {/* Generate button */}
-      <button className={`btn-gen ${loading ? 'btn-gen-busy' : ''}`}
-              onClick={handleGenerate} disabled={isDisabled}>
-        {loading ? (
-          <><div className="b-spin" /> Generating with gemini-2.5-flash…</>
-        ) : extracting ? (
-          <><div className="b-spin" /> Extracting from PDF…</>
-        ) : (
-          <>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" strokeWidth="1.8"
-                    strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.8"
-                    strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Generate Newsletter
-          </>
-        )}
-      </button>
+      {/* ── Action buttons row — Regenerate + Generate ── */}
+      <div style={{ display: 'flex', gap: 10 }}>
+
+        {/* Regenerate button */}
+        <button
+          onClick={handleRegenerate}
+          disabled={isDisabled || !docIds.length}
+          title="Clear all fields and re-extract stories from PDF"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '12px 16px', fontSize: 13, fontWeight: 600,
+            background: regenerating
+              ? 'rgba(251,146,60,0.3)'
+              : 'rgba(251,146,60,0.15)',
+            color: regenerating ? '#fed7aa' : '#fb923c',
+            border: '1px solid rgba(251,146,60,0.3)',
+            borderRadius: 8, cursor: isDisabled ? 'not-allowed' : 'pointer',
+            opacity: (isDisabled && !regenerating) ? 0.5 : 1,
+            transition: 'all 0.15s',
+            flexShrink: 0,
+          }}
+        >
+          {regenerating ? (
+            <><div className="b-spin" style={{ width: 13, height: 13,
+              borderTopColor: '#fb923c', borderColor: 'rgba(251,146,60,0.25)' }} />
+              Regenerating…</>
+          ) : (
+            <>
+              {/* Refresh icon */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <polyline points="23 4 23 10 17 10" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <polyline points="1 20 1 14 7 14" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                      stroke="currentColor" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Regenerate
+            </>
+          )}
+        </button>
+
+        {/* Generate Newsletter button */}
+        <button
+          className={`btn-gen ${loading ? 'btn-gen-busy' : ''}`}
+          onClick={handleGenerate}
+          disabled={isDisabled}
+          style={{ flex: 1 }}
+        >
+          {loading ? (
+            <><div className="b-spin" /> Generating with gemini-2.5-flash…</>
+          ) : extracting || regenerating ? (
+            <><div className="b-spin" /> Extracting from PDF…</>
+          ) : (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor"
+                      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor"
+                      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Generate Newsletter
+            </>
+          )}
+        </button>
+      </div>
 
       {loading && (
         <div className="gen-notice">
@@ -447,10 +519,13 @@ export default function NewsletterEditor({
         </div>
       )}
 
+      {/* ── Editable generated output ── */}
       {content && (
         <div>
           <div className="ta-bar">
-            <label className="flbl" style={{ marginBottom: 0 }}>Generated Content (editable)</label>
+            <label className="flbl" style={{ marginBottom: 0 }}>
+              Generated Content (editable)
+            </label>
             <span className="ta-chars">{content.length} chars</span>
           </div>
           <textarea className="fta" value={content}
@@ -458,7 +533,8 @@ export default function NewsletterEditor({
           <button className="btn-save" onClick={handleSave}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
-                    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    stroke="currentColor" strokeWidth="1.8"
+                    strokeLinecap="round" strokeLinejoin="round"/>
               <polyline points="17 21 17 13 7 13 7 21" stroke="currentColor"
                         strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
