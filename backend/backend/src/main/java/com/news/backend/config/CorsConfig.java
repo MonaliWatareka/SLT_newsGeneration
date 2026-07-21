@@ -10,7 +10,8 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(
                     "http://localhost",       // Docker (nginx) frontend
-                    "http://localhost:5173"   // Vite dev server
+                    "http://localhost:5173",  // Vite dev server
+                    "http://152.42.230.223:8083" 
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
