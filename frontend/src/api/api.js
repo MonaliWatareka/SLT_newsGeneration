@@ -1,6 +1,6 @@
 import axios from "axios";
+const api = axios.create({ baseURL: '/api' });
 
-const BASE = import.meta.env.VITE_API_BASE_URL;
 
 export const uploadDocument = (file, onProgress) => {
   const form = new FormData();
