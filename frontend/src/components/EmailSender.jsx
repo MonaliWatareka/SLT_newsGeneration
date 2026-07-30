@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-const DEFAULT_EMAIL = 'chamodhie.samudrini@slt.com.lk';
+const DEFAULT_EMAIL = 'sltaianddata@outlook.com';
 
 export default function EmailSender({ newsletter }) {
   const [email,       setEmail]       = useState(DEFAULT_EMAIL);
