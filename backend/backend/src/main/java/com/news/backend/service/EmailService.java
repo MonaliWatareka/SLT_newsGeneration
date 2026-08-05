@@ -65,6 +65,20 @@ public class EmailService {
           .append("InfiniAI Pulse - Top Stories in AI &amp; Telecom")
           .append("</h1></div>");
 
+        // ── GREETING / COVER NOTE ──
+        sb.append("<div style=\"padding:24px 32px;border-bottom:1px solid #e0e0e0;\">")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.8;margin:0 0 16px 0;\">Dear Kapila,</p>")
+          .append("<p style=\"font-size:14px;color:#374151;line-height:1.8;margin:0 0 20px 0;\">")
+          .append("Please find this week&rsquo;s InfiniAI Pulse newsletter attached to circulate within the company.")
+          .append("</p>")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.6;margin:0;\">")
+          .append("Best regards,<br/>")
+          .append("<strong>Anil Pradeep Kumara</strong><br/>")
+          .append("Head of AI &amp; Data Business Unit<br/>")
+          .append("Sri Lanka Telecom PLC")
+          .append("</p>")
+          .append("</div>");
+
         // ── IMAGES via CID (Gmail-safe) ──
         for (int i = 0; i < imageCount; i++) {
             sb.append("<div style=\"width:100%;border-bottom:3px solid #1a56a0;\">")
@@ -148,7 +162,7 @@ public class EmailService {
           .append(" for daily updates.</p>")
           .append("</div>");
 
-        // ── FOOTER ── (updated: Vertex AI instead of Ollama AI)
+        // ── FOOTER ──
         sb.append("<div style=\"background:#0a1628;padding:18px 32px;text-align:center;\">")
           .append("<p style=\"font-size:12px;color:#7a9bbf;line-height:1.6;\">")
           .append("<strong style=\"color:#a8c4e0;\">© 2026 SLTMobitel | InfiniAI — AI &amp; Data Office</strong>")
