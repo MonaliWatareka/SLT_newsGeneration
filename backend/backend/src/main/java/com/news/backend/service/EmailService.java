@@ -20,6 +20,10 @@ public class EmailService {
     private final JavaMailSender mailSender;
 
     public void sendNewsletter(Newsletter newsletter, String recipientEmail) {
+        sendNewsletter(newsletter, recipientEmail, null);
+    }
+
+    public void sendNewsletter(Newsletter newsletter, String recipientEmail, String recipientName) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -32,7 +36,7 @@ public class EmailService {
             List<String> images     = newsletter.getImageBase64List();
             int          imageCount = (images != null) ? images.size() : 0;
 
-            helper.setText(buildInlineHtml(newsletter, imageCount), true);
+            helper.setText(buildInlineHtml(newsletter, imageCount, recipientName), true);
 
             if (images != null) {
                 for (int i = 0; i < images.size(); i++) {
@@ -48,7 +52,7 @@ public class EmailService {
         }
     }
 
-    private String buildInlineHtml(Newsletter nl, int imageCount) {
+    private String buildInlineHtml(Newsletter nl, int imageCount, String recipientName) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("<!DOCTYPE html><html><head>")
@@ -59,25 +63,29 @@ public class EmailService {
           .append("<body style=\"margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;\">")
           .append("<div style=\"max-width:700px;margin:0 auto;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #ddd;\">");
 
+        // ── GREETING (plain email preamble — not part of the newsletter content) ──
+        String greetName = (recipientName != null && !recipientName.isBlank())
+            ? recipientName.trim()
+            : "Team";
+
+        sb.append("<div style=\"padding:24px 32px 4px;font-family:Arial,Helvetica,sans-serif;\">")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.7;margin:0 0 14px;\">")
+          .append("Dear ").append(safe(greetName)).append(",")
+          .append("</p>")
+          .append("<p style=\"font-size:14px;color:#374151;line-height:1.7;margin:0 0 14px;\">")
+          .append("Please find this week's InfiniAI Pulse newsletter below to circulate within the company.")
+          .append("</p>")
+          .append("<p style=\"font-size:14px;color:#374151;line-height:1.6;margin:0 0 4px;\">Best regards,</p>")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.5;margin:0;font-weight:bold;\">Anil Pradeep Kumara</p>")
+          .append("<p style=\"font-size:13px;color:#5a7a9f;line-height:1.5;margin:0;\">Head of AI &amp; Data Business Unit</p>")
+          .append("<p style=\"font-size:13px;color:#5a7a9f;line-height:1.5;margin:0 0 4px;\">Sri Lanka Telecom PLC</p>")
+          .append("</div>");
+
         // ── HEADER ──
         sb.append("<div style=\"background:#0a1628;padding:28px 32px;text-align:center;border-bottom:3px solid #1a56a0;\">")
           .append("<h1 style=\"font-size:26px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;line-height:1.3;margin:0;\">")
           .append("InfiniAI Pulse - Top Stories in AI &amp; Telecom")
           .append("</h1></div>");
-
-        // ── GREETING / COVER NOTE ──
-        sb.append("<div style=\"padding:24px 32px;border-bottom:1px solid #e0e0e0;\">")
-          .append("<p style=\"font-size:14px;color:#111827;line-height:1.8;margin:0 0 16px 0;\">Dear Kapila,</p>")
-          .append("<p style=\"font-size:14px;color:#374151;line-height:1.8;margin:0 0 20px 0;\">")
-          .append("Please find this week&rsquo;s InfiniAI Pulse newsletter attached to circulate within the company.")
-          .append("</p>")
-          .append("<p style=\"font-size:14px;color:#111827;line-height:1.6;margin:0;\">")
-          .append("Best regards,<br/>")
-          .append("<strong>Anil Pradeep Kumara</strong><br/>")
-          .append("Head of AI &amp; Data Business Unit<br/>")
-          .append("Sri Lanka Telecom PLC")
-          .append("</p>")
-          .append("</div>");
 
         // ── IMAGES via CID (Gmail-safe) ──
         for (int i = 0; i < imageCount; i++) {
@@ -162,7 +170,7 @@ public class EmailService {
           .append(" for daily updates.</p>")
           .append("</div>");
 
-        // ── FOOTER ──
+        // ── FOOTER ── (updated: Vertex AI instead of Ollama AI)
         sb.append("<div style=\"background:#0a1628;padding:18px 32px;text-align:center;\">")
           .append("<p style=\"font-size:12px;color:#7a9bbf;line-height:1.6;\">")
           .append("<strong style=\"color:#a8c4e0;\">© 2026 SLTMobitel | InfiniAI — AI &amp; Data Office</strong>")

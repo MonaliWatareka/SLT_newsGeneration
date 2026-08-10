@@ -4,9 +4,10 @@ import toast from 'react-hot-toast';
 const DEFAULT_EMAIL = 'sltaianddata@outlook.com';
 
 export default function EmailSender({ newsletter }) {
-  const [email,       setEmail]       = useState(DEFAULT_EMAIL);
-  const [sending,     setSending]     = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [email,        setEmail]        = useState(DEFAULT_EMAIL);
+  const [recipientName, setRecipientName] = useState('');
+  const [sending,      setSending]      = useState(false);
+  const [downloading,  setDownloading]  = useState(false);
 
   const isDefault = email.trim() === DEFAULT_EMAIL;
 
@@ -20,7 +21,10 @@ export default function EmailSender({ newsletter }) {
       const res = await fetch(`/api/newsletters/${newsletter.id}/send-email`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ recipientEmail: email.trim() }),
+        body:    JSON.stringify({
+          recipientEmail: email.trim(),
+          recipientName:  recipientName.trim(),
+        }),
       });
       if (!res.ok) throw new Error('Send failed');
       toast.success(`Newsletter sent to ${email.trim()}`);
@@ -57,6 +61,28 @@ export default function EmailSender({ newsletter }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Recipient name row (used only for the "Dear ___," greeting) */}
+      <div>
+        <label className="flbl" style={{ marginBottom: 6, display: 'block' }}>
+          Recipient Name <span style={{ color: '#5a7a9f', fontWeight: 400 }}>(optional — for greeting)</span>
+        </label>
+        <input
+          className="finp"
+          type="text"
+          placeholder="e.g. Kapila"
+          value={recipientName}
+          onChange={e => setRecipientName(e.target.value)}
+          disabled={sending}
+          style={{ marginBottom: 0 }}
+        />
+        <div style={{ fontSize: 11, color: '#5a7a9f', marginTop: 5 }}>
+          Greeting will read:{' '}
+          <span style={{ color: '#eef2ff', fontWeight: 600 }}>
+            Dear {recipientName.trim() || 'Team'},
+          </span>
+        </div>
+      </div>
 
       {/* Email input row */}
       <div>
