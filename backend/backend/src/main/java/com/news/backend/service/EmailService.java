@@ -66,7 +66,7 @@ public class EmailService {
         // ── GREETING (plain email preamble — not part of the newsletter content) ──
         String greetName = (recipientName != null && !recipientName.isBlank())
             ? recipientName.trim()
-            : "Team";
+            : "Mr. Kapila";
 
         sb.append("<div style=\"padding:24px 32px 4px;font-family:Arial,Helvetica,sans-serif;\">")
           .append("<p style=\"font-size:14px;color:#111827;line-height:1.7;margin:0 0 14px;\">")

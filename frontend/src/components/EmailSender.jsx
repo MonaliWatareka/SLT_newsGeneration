@@ -70,7 +70,7 @@ export default function EmailSender({ newsletter }) {
         <input
           className="finp"
           type="text"
-          placeholder="e.g. Kapila"
+          placeholder="e.g. Mr. Kapila"
           value={recipientName}
           onChange={e => setRecipientName(e.target.value)}
           disabled={sending}
@@ -79,7 +79,7 @@ export default function EmailSender({ newsletter }) {
         <div style={{ fontSize: 11, color: '#5a7a9f', marginTop: 5 }}>
           Greeting will read:{' '}
           <span style={{ color: '#eef2ff', fontWeight: 600 }}>
-            Dear {recipientName.trim() || 'Team'},
+            Dear {recipientName.trim() || 'Mr. Kapila'},
           </span>
         </div>
       </div>
