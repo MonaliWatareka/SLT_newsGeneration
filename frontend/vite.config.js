@@ -6,7 +6,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        // LOCAL ONLY - do not commit. The backend runs on 8081 on this machine
+        // because something else holds 8080. On the VM it stays 8080.
+        target: "http://localhost:8081",
         changeOrigin: true,
       },
     },

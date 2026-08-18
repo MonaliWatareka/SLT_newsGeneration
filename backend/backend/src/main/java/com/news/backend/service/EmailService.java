@@ -52,6 +52,69 @@ public class EmailService {
         }
     }
 
+    /**
+     * Sends an imported newsletter (produced by the n8n workflow) as a PDF
+     * attachment with a short covering note.
+     *
+     * Note the multipart mode: the method above uses MULTIPART_MODE_RELATED,
+     * which supports inline CID images but silently drops attachments.
+     * Attachments require MULTIPART_MODE_MIXED_RELATED, hence a separate method.
+     */
+    public void sendNewsletterPdf(Newsletter nl, String recipientEmail, String recipientName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8"
+            );
+
+            helper.setTo(recipientEmail);
+            helper.setSubject("InfiniAI Pulse - Top Stories in AI & Telecom"
+                + (nl.getIssueNo() != null && !nl.getIssueNo().isBlank()
+                    ? " (Issue " + nl.getIssueNo() + ")" : ""));
+
+            helper.setText(buildCoverNote(nl, recipientName), true);
+
+            byte[] pdf = java.nio.file.Files.readAllBytes(
+                java.nio.file.Paths.get(nl.getPdfPath()));
+            String fileName = (nl.getIssueNo() != null && !nl.getIssueNo().isBlank())
+                ? "InfiniAI-Pulse-Issue-" + nl.getIssueNo() + ".pdf"
+                : "InfiniAI-Pulse.pdf";
+
+            helper.addAttachment(fileName, new ByteArrayDataSource(pdf, "application/pdf"));
+
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new RuntimeException("Email sending failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** Short covering note for an attached PDF issue. Same voice as the inline email. */
+    private String buildCoverNote(Newsletter nl, String recipientName) {
+        String greetName = (recipientName != null && !recipientName.isBlank())
+            ? recipientName.trim() : "Mr. Kapila";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>")
+          .append("<body style=\"margin:0;padding:24px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;\">")
+          .append("<div style=\"max-width:700px;margin:0 auto;background:#ffffff;border:1px solid #ddd;border-radius:4px;padding:28px 32px;\">")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.7;margin:0 0 14px;\">Dear ")
+          .append(safe(greetName)).append(",</p>")
+          .append("<p style=\"font-size:14px;color:#374151;line-height:1.7;margin:0 0 14px;\">")
+          .append("Please find attached this week&#39;s InfiniAI Pulse newsletter");
+        if (nl.getWeekLabel() != null && !nl.getWeekLabel().isBlank())
+            sb.append(" for ").append(safe(nl.getWeekLabel()));
+        sb.append(", to circulate within the company.</p>")
+          .append("<p style=\"font-size:14px;color:#374151;line-height:1.6;margin:0 0 4px;\">Best regards,</p>")
+          .append("<p style=\"font-size:14px;color:#111827;line-height:1.5;margin:0;font-weight:bold;\">Anil Pradeep Kumara</p>")
+          .append("<p style=\"font-size:13px;color:#5a7a9f;line-height:1.5;margin:0;\">Head of AI &amp; Data Business Unit</p>")
+          .append("<p style=\"font-size:13px;color:#5a7a9f;line-height:1.5;margin:0;\">Sri Lanka Telecom PLC</p>")
+          .append("<hr style=\"border:none;border-top:1px solid #e5e7eb;margin:22px 0;\">")
+          .append("<p style=\"font-size:11px;color:#7a9bbf;margin:0;\">")
+          .append("&copy; 2026 SLTMobitel | InfiniAI &mdash; AI &amp; Data Office</p>")
+          .append("</div></body></html>");
+        return sb.toString();
+    }
+
     private String buildInlineHtml(Newsletter nl, int imageCount, String recipientName) {
         StringBuilder sb = new StringBuilder();
 

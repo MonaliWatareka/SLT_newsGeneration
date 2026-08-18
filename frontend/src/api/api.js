@@ -12,6 +12,10 @@ export const uploadDocument = (file, onProgress) => {
 };
 
 export const getDocuments = () => axios.get(`${BASE}/documents`);
+
+// Kicks off the automatic weekly issue. Returns straight away; the workflow
+// takes a couple of minutes and the document appears in the list when done.
+export const autoGenerate = () => axios.post(`${BASE}/newsletters/auto-generate`);
 export const deleteDocument = (id) => axios.delete(`${BASE}/documents/${id}`);
 
 export const generateNewsletter = (documentIds, title) =>
