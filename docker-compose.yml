@@ -17,6 +17,8 @@ services:
       - SPRING_MAIL_USERNAME=${MAIL_USERNAME}
       - SPRING_MAIL_PASSWORD=${MAIL_PASSWORD}
       - FILE_UPLOAD_DIR=/app/uploads
+      - INFINIAI_IMPORT_TOKEN=${INFINIAI_IMPORT_TOKEN}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
     volumes:
       - uploads_data:/app/uploads
     restart: unless-stopped

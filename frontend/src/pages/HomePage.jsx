@@ -3,7 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import FileUpload from '../components/FileUpload';
 import NewsletterEditor from '../components/NewsletterEditor';
 import EmailSender from '../components/EmailSender';
-import { getDocuments, deleteDocument } from '../api/api';
+import { getDocuments, deleteDocument, autoGenerate } from '../api/api';
 import toast from 'react-hot-toast';
 import sltLogo from '../assets/slt_logo_new.be681e06.png';
 
@@ -11,20 +11,68 @@ export default function HomePage() {
   const [documents,   setDocuments]   = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [newsletter,  setNewsletter]  = useState(null);
+  const [autoBusy,    setAutoBusy]    = useState(false);
 
   // Load existing documents on mount and auto-select the latest one
   useEffect(() => {
     getDocuments()
       .then(r => {
-        const docs = r.data;
+        const docs = Array.isArray(r.data)
+          ? r.data
+          : Array.isArray(r.data?.documents)
+          ? r.data.documents
+          : [];
+
         setDocuments(docs);
         // Auto-select the most recent document if any exist
         if (docs.length > 0) {
           setSelectedIds([docs[0].id]);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setDocuments([]);
+      });
   }, []);
+
+  /* "Generate this week's pdf" — runs the news workflow behind the scenes.
+     The user never sees n8n. The workflow gathers the week's news, builds the
+     PDF and posts it back to /api/documents/upload, so we simply poll the
+     document list until a new one turns up. */
+  const handleAutoGenerate = async () => {
+    if (autoBusy) return;
+    setAutoBusy(true);
+
+    const before = documents.length;
+    const toastId = toast.loading("Gathering this week's news…");
+
+    try {
+      await autoGenerate();
+      toast.loading('Writing and designing the pdf… about two minutes.', { id: toastId });
+
+      const started = Date.now();
+      const poll = setInterval(async () => {
+        try {
+          const r = await getDocuments();
+          const docs = Array.isArray(r.data) ? r.data : [];
+          if (docs.length > before) {
+            clearInterval(poll);
+            setDocuments(docs);
+            setSelectedIds([docs[0].id]);
+            setNewsletter(null);
+            setAutoBusy(false);
+            toast.success("This week's pdf is ready.", { id: toastId });
+          } else if (Date.now() - started > 5 * 60 * 1000) {
+            clearInterval(poll);
+            setAutoBusy(false);
+            toast.error('Still running. Refresh in a moment.', { id: toastId });
+          }
+        } catch { /* keep polling */ }
+      }, 8000);
+    } catch (e) {
+      setAutoBusy(false);
+      toast.error(e?.response?.data?.error || 'Could not start the workflow.', { id: toastId });
+    }
+  };
 
   // When a new document is uploaded → auto-select it immediately
   const handleDocumentUploaded = (doc) => {
@@ -135,6 +183,35 @@ export default function HomePage() {
               </div>
             </div>
             <div className="card-body">
+              {/* Automatic weekly pdf. The news workflow runs behind the
+                  scenes - the user never sees or needs to know about n8n. */}
+              <button
+                onClick={handleAutoGenerate}
+                disabled={autoBusy}
+                style={{
+                  width: '100%', marginBottom: 16, padding: '14px 18px',
+                  borderRadius: 12, border: '1px solid rgba(90,159,212,0.35)',
+                  background: autoBusy
+                    ? 'rgba(90,159,212,0.12)'
+                    : 'linear-gradient(120deg,#205781,#4F959D)',
+                  color: '#fff', fontFamily: "'Inter',sans-serif",
+                  fontSize: 14, fontWeight: 600,
+                  cursor: autoBusy ? 'wait' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{autoBusy ? '\u25CB' : '\u26A1'}</span>
+                {autoBusy ? "Building this week's pdf\u2026"
+                          : "Generate this week's pdf automatically"}
+              </button>
+
+              <div style={{
+                textAlign: 'center', fontSize: 11, color: '#5a7a9f',
+                letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 14,
+              }}>
+                or upload your own
+              </div>
+
               <FileUpload onDocumentUploaded={handleDocumentUploaded} />
             </div>
           </div>

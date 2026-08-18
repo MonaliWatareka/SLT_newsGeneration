@@ -6,22 +6,30 @@ import com.news.backend.model.NewsDocument;
 import com.news.backend.model.Newsletter;
 import com.news.backend.model.SubTopic;
 import com.news.backend.repository.DocumentRepository;
+import com.news.backend.repository.NewsletterRepository;
 import com.news.backend.service.EmailService;
 import com.news.backend.service.NewsletterService;
 import com.news.backend.service.VertexAiService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/newsletters")
@@ -31,9 +39,21 @@ public class NewsletterController {
 
     private final NewsletterService  newsletterService;
     private final EmailService       emailService;
-    private final DocumentRepository documentRepository;
-    private final VertexAiService    vertexAiService;
-    private final ObjectMapper       objectMapper = new ObjectMapper();
+    private final DocumentRepository   documentRepository;
+    private final NewsletterRepository newsletterRepository;
+    private final VertexAiService      vertexAiService;
+    private final ObjectMapper         objectMapper = new ObjectMapper();
+
+    /** Shared secret with the n8n workflow. Blank => the import endpoint refuses everything. */
+    @Value("${infiniai.import.token:}")
+    private String importToken;
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    /** n8n webhook that runs the weekly news workflow. Blank = feature disabled. */
+    @Value("${infiniai.n8n.webhook-url:}")
+    private String n8nWebhookUrl;
 
     // ── Generate full newsletter ─────────────────────────────────────────
     @PostMapping("/generate")
@@ -158,10 +178,117 @@ public class NewsletterController {
         return ResponseEntity.ok(Map.of("alive", alive, "url", url));
     }
 
+    // ── Kick off the automatic weekly issue ───────────────────────────────
+    // Calls the n8n workflow, which gathers the week's news, builds the PDF and
+    // posts it back to /api/documents/upload. Returns immediately: the run takes
+    // a couple of minutes, so the UI polls the document list rather than waiting.
+    @PostMapping("/auto-generate")
+    public ResponseEntity<Map<String, String>> autoGenerate() {
+        if (n8nWebhookUrl == null || n8nWebhookUrl.isBlank())
+            return ResponseEntity.status(503)
+                .body(Map.of("error", "Automatic generation is not configured"));
+
+        try {
+            HttpURLConnection connection =
+                (HttpURLConnection) URI.create(n8nWebhookUrl).toURL().openConnection();
+
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+
+            try (var output = connection.getOutputStream()) {
+                output.write("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+
+            int status = connection.getResponseCode();
+            connection.disconnect();
+
+            if (status >= 200 && status < 300) {
+                return ResponseEntity.accepted().body(Map.of(
+                    "status", "started",
+                    "message", "Gathering this week's news. The issue appears in a minute or two."
+                ));
+            }
+
+            return ResponseEntity.status(502).body(Map.of(
+                "error", "n8n returned HTTP " + status
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(502)
+                .body(Map.of("error", "Could not reach the news workflow: " + e.getMessage()));
+        }
+    }
+
+    // ── Import a finished PDF produced by the n8n workflow ────────────────
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> importPdf(
+            @RequestHeader(value = "X-Api-Token", required = false) String token,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(defaultValue = "InfiniAI Pulse") String title,
+            @RequestParam(required = false) String issueNo,
+            @RequestParam(required = false) String weekLabel,
+            @RequestParam(defaultValue = "n8n-auto") String source) {
+
+        if (importToken == null || importToken.isBlank() || !importToken.equals(token))
+            return ResponseEntity.status(401)
+                .body(Map.of("error", "Invalid or missing X-Api-Token"));
+
+        if (file == null || file.isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("error", "file is empty"));
+
+        try {
+            // Write the PDF to disk and keep only the path in Mongo.
+            Path dir = Paths.get(uploadDir, "newsletters");
+            Files.createDirectories(dir);
+            Path target = dir.resolve(UUID.randomUUID() + ".pdf");
+            Files.write(target, file.getBytes());
+
+            Newsletter nl = new Newsletter();
+            nl.setTitle(title);
+            nl.setIssueNo(issueNo);
+            nl.setWeekLabel(weekLabel);
+            nl.setOrigin(source);
+            nl.setCreatedAt(LocalDateTime.now());
+            nl.setEmailSent(false);
+            nl.setPdfPath(target.toString());
+
+            Newsletter saved = newsletterRepository.save(nl);
+
+            return ResponseEntity.status(201).body(Map.of(
+                "id",     saved.getId(),
+                "title",  saved.getTitle(),
+                "status", "stored"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                .body(Map.of("error", "Import failed: " + e.getMessage()));
+        }
+    }
+
     // ── Download newsletter as PDF ────────────────────────────────────────
     @GetMapping("/{id}/download")
     public ResponseEntity<byte[]> download(@PathVariable String id) {
         Newsletter nl = newsletterService.getById(id);
+
+        // Imported newsletters are already PDFs - serve the file as it is.
+        // They have no templateHtml, so the Flying Saucer path below would fail.
+        if (nl.getPdfPath() != null && !nl.getPdfPath().isBlank()) {
+            byte[] stored;
+            try {
+                stored = Files.readAllBytes(Paths.get(nl.getPdfPath()));
+            } catch (Exception e) {
+                throw new RuntimeException("Stored PDF missing: " + nl.getPdfPath(), e);
+            }
+
+            HttpHeaders storedHeaders = new HttpHeaders();
+            storedHeaders.setContentType(MediaType.APPLICATION_PDF);
+            storedHeaders.setContentDispositionFormData("attachment", pdfFileName(nl));
+            storedHeaders.setContentLength(stored.length);
+            return ResponseEntity.ok().headers(storedHeaders).body(stored);
+        }
 
         try {
             String html = nl.getTemplateHtml();
@@ -270,11 +397,24 @@ public class NewsletterController {
             @PathVariable String id,
             @RequestBody  Map<String, String> body) {
         Newsletter nl = newsletterService.getById(id);
-        emailService.sendNewsletter(nl, body.get("recipientEmail"));
+
+        if (nl.getPdfPath() != null && !nl.getPdfPath().isBlank()) {
+            // Imported issue - send the PDF as an attachment with a cover note.
+            emailService.sendNewsletterPdf(nl, body.get("recipientEmail"),
+                                               body.get("recipientName"));
+        } else {
+            emailService.sendNewsletter(nl, body.get("recipientEmail"));
+        }
         return ResponseEntity.ok(Map.of("status", "Email sent successfully"));
     }
 
     // ── Private helpers ───────────────────────────────────────────────────
+
+    static String pdfFileName(Newsletter nl) {
+        return (nl.getIssueNo() != null && !nl.getIssueNo().isBlank())
+            ? "InfiniAI-Pulse-Issue-" + nl.getIssueNo() + ".pdf"
+            : "newsletter.pdf";
+    }
 
     private String fetchFirstWorkingLink(String topicTitle) {
         try {
